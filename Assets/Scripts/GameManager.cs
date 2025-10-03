@@ -11,6 +11,7 @@ public class GameManager : MonoBehaviour
 			public KoobNodeSet koobNodeSet;
 			public KoobPlayer GetCurrentPlayer() => gameStateMachine.CurrentPlayer;
 			public UnityAction<KoobPlayer> GameWon;
+			public UnityAction<Vector3> CurrentPlayerWillWinSoon;
 		#endregion public vars
 		
 		#region private vars
@@ -28,6 +29,7 @@ public class GameManager : MonoBehaviour
 			private List<PlayerPiece> allPlayerPieces = new List<PlayerPiece>();
 			private List<NPCPlayer> npcPlayers = new List<NPCPlayer>();
 			private Coroutine aiTurnCoroutine;
+			private HighlightsManager highlightsManager;
 			
 			private const int NUM_PLAYERS = 4;
 			private const int PIECES_PER_PLAYER = 2;
@@ -36,16 +38,21 @@ public class GameManager : MonoBehaviour
 
 	private void Start()
 	{
+		// Get reference to HighlightsManager
+		highlightsManager = GetComponent<HighlightsManager>();
+		if (highlightsManager == null)
+			KoobyLogManager.LogWarning(LogCategory.Manager, "HighlightsManager component not found on same GameObject.");
+		
 		if (koobMatrixPrefab)
 		{
 			koobMatrixInstance = Instantiate(koobMatrixPrefab);
 			koobNodeSet = koobMatrixInstance.GetComponent<KoobNodeSet>();
 			
-			if (koobNodeSet == null)
-				Debug.LogWarning("GameManager: KoobNodeSet component not found on koobMatrixInstance.");
+		if (koobNodeSet == null)
+			KoobyLogManager.LogWarning(LogCategory.Manager, "KoobNodeSet component not found on koobMatrixInstance.");
 		}
 		else
-			Debug.LogWarning("GameManager: Koob Matrix Prefab not assigned.");
+			KoobyLogManager.LogWarning(LogCategory.Manager, "Koob Matrix Prefab not assigned.");
 
 		koobState = new KoobState();
 		koobState.ResetBoard();
@@ -63,13 +70,13 @@ public class GameManager : MonoBehaviour
 	{
 		if (playerPieceMaterials == null || playerPieceMaterials.Length < 4)
 		{
-			Debug.LogError("GameManager: Player Piece Materials array not properly assigned. Need 4 materials for players 1, 2, 3, 4.");
+			KoobyLogManager.LogError(LogCategory.Manager, "Player Piece Materials array not properly assigned. Need 4 materials for players 1, 2, 3, 4.");
 			return;
 		}
 		
 		if (koobNodeSet == null)
 		{
-			Debug.LogError("GameManager: KoobNodeSet not available. Make sure koobMatrixPrefab has KoobNodeSet component.");
+			KoobyLogManager.LogError(LogCategory.Manager, "KoobNodeSet not available. Make sure koobMatrixPrefab has KoobNodeSet component.");
 			return;
 		}
 		
@@ -91,7 +98,7 @@ public class GameManager : MonoBehaviour
 		// Set Player 1 as the current player (will fire NewTurnBegan and trigger AI if enabled)
 		gameStateMachine.SetCurrentPlayer(koobPlayers[0]);
 		
-		Debug.Log($"Game started! Created {NUM_PLAYERS * PIECES_PER_PLAYER} player pieces total.");
+		KoobyLogManager.Log(LogCategory.Manager, $"Game started! Created {NUM_PLAYERS * PIECES_PER_PLAYER} player pieces total.");
 		
 		// Initialize debug motion if enabled
 		if (_debugMotion)
@@ -127,14 +134,14 @@ public class GameManager : MonoBehaviour
 		int playerID = int.Parse(pieceName.Substring(6, 1)); // Extract player number
 		
 		// Debug: Print the move details BEFORE updating KoobState
-		Debug.Log($"Move: {pieceName} from {oldPosition} to {newPosition}");
-		Debug.Log($"KoobState BEFORE update - Old pos ({oldX},{oldY},{oldZ}): {koobState.GetNode(oldX, oldY, oldZ).occupied}, New pos ({x},{y},{z}): {koobState.GetNode(x, y, z).occupied}");
+		KoobyLogManager.Log(LogCategory.Matrix, $"Move: {pieceName} from {oldPosition} to {newPosition}");
+		KoobyLogManager.Log(LogCategory.Matrix, $"KoobState BEFORE update - Old pos ({oldX},{oldY},{oldZ}): {koobState.GetNode(oldX, oldY, oldZ).occupied}, New pos ({x},{y},{z}): {koobState.GetNode(x, y, z).occupied}");
 		
 		// Update the KoobState
 		koobState.SetNode(x, y, z, true, playerID);
 		
 		// Debug: Print the move details AFTER updating KoobState
-		Debug.Log($"KoobState AFTER update - Old pos ({oldX},{oldY},{oldZ}): {koobState.GetNode(oldX, oldY, oldZ).occupied}, New pos ({x},{y},{z}): {koobState.GetNode(x, y, z).occupied}");
+		KoobyLogManager.Log(LogCategory.Matrix, $"KoobState AFTER update - Old pos ({oldX},{oldY},{oldZ}): {koobState.GetNode(oldX, oldY, oldZ).occupied}, New pos ({x},{y},{z}): {koobState.GetNode(x, y, z).occupied}");
 		
 		// Efficiently update possible moves for the position change
 		RefreshPossibleMovesForPositionChange(oldPosition, newPosition);
@@ -151,7 +158,7 @@ public class GameManager : MonoBehaviour
 		int nextPlayerIndex = (currentPlayerIndex + 1) % NUM_PLAYERS;
 		gameStateMachine.SetCurrentPlayer(koobPlayers[nextPlayerIndex]);
 		
-		Debug.Log($"Updated KoobState for {pieceName} at position ({x},{y},{z}). Next player: Player{nextPlayerIndex + 1}");
+		KoobyLogManager.Log(LogCategory.Manager, $"Updated KoobState for {pieceName} at position ({x},{y},{z}). Next player: Player{nextPlayerIndex + 1}");
 	}
 
 	private bool CheckForWin(KoobPlayer player)
@@ -170,7 +177,7 @@ public class GameManager : MonoBehaviour
 		bool adjacent = (dx + dy + dz) == 1;
 		if (!adjacent) return false;
 
-		Debug.Log($"PLAYER {player.id} WON!!!");
+		KoobyLogManager.Log(LogCategory.Player, $"PLAYER {player.id} WON!!!");
 		GameWon?.Invoke(player);
 		return true;
 	}
@@ -197,7 +204,7 @@ public class GameManager : MonoBehaviour
 	{
 		if (koobPlayerPrefab == null)
 		{
-			Debug.LogError("GameManager: KoobPlayer Prefab not assigned.");
+			KoobyLogManager.LogError(LogCategory.Manager, "KoobPlayer Prefab not assigned.");
 			return;
 		}
 		
@@ -216,16 +223,16 @@ public class GameManager : MonoBehaviour
 			}
 			else
 			{
-				Debug.LogError($"GameManager: KoobPlayer component not found on prefab for Player {i + 1}.");
+				KoobyLogManager.LogError(LogCategory.Manager, $"KoobPlayer component not found on prefab for Player {i + 1}.");
 				Destroy(playerInstance);
 			}
 		}
 		
 		// Final verification
 		if (koobPlayers.Count != NUM_PLAYERS)
-			Debug.LogError($"GameManager: Expected {NUM_PLAYERS} players but only created {koobPlayers.Count}.");
+			KoobyLogManager.LogError(LogCategory.Manager, $"Expected {NUM_PLAYERS} players but only created {koobPlayers.Count}.");
 		
-		Debug.Log($"Created {koobPlayers.Count} players.");
+		KoobyLogManager.Log(LogCategory.Manager, $"Created {koobPlayers.Count} players.");
 	}
 	
 	private void CreatePlayerPieces()
@@ -235,7 +242,7 @@ public class GameManager : MonoBehaviour
 		{
 			if (playerPieceMaterials[player] == null)
 			{
-				Debug.LogError($"GameManager: Material for Player {player + 1} is not assigned.");
+				KoobyLogManager.LogError(LogCategory.Manager, $"Material for Player {player + 1} is not assigned.");
 				continue;
 			}
 			
@@ -289,7 +296,7 @@ public class GameManager : MonoBehaviour
 				// Add to global pieces list for debug motion
 				allPlayerPieces.Add(playerPieceComponent);
 				
-				Debug.Log($"Created {playerPiece.name} with material {playerPieceMaterials[player].name} at logical position {logicalPosition} with {initialPossibleMoves.Count} possible moves");
+				KoobyLogManager.Log(LogCategory.Player, $"Created {playerPiece.name} with material {playerPieceMaterials[player].name} at logical position {logicalPosition} with {initialPossibleMoves.Count} possible moves");
 			}
 		}
 	}
@@ -323,7 +330,7 @@ public class GameManager : MonoBehaviour
 	
 	private void RefreshPossibleMovesForPositionChange(Vector3 oldPosition, Vector3 newPosition)
 	{
-		Debug.Log($"Refreshing moves: removing {newPosition} from all pieces, adding {oldPosition} to adjacent pieces");
+		KoobyLogManager.Log(LogCategory.Matrix, $"Refreshing moves: removing {newPosition} from all pieces, adding {oldPosition} to adjacent pieces");
 		
 		// Remove newly occupied position from all pieces' possible moves
 		foreach (var piece in allPlayerPieces)
@@ -331,7 +338,7 @@ public class GameManager : MonoBehaviour
 			var currentMoves = piece.GetPossibleMoves();
 			if (currentMoves.Contains(newPosition))
 			{
-				Debug.Log($"Removing {newPosition} from {piece.gameObject.name}'s possible moves");
+				KoobyLogManager.Log(LogCategory.Matrix, $"Removing {newPosition} from {piece.gameObject.name}'s possible moves");
 				currentMoves.Remove(newPosition);
 				piece.SetPossibleMoves(currentMoves);
 			}
@@ -344,7 +351,7 @@ public class GameManager : MonoBehaviour
 			List<Vector3> adjacentPositions = koobState.GetPossibleMoves(currentPos);
 			if (adjacentPositions.Contains(oldPosition))
 			{
-				Debug.Log($"Adding {oldPosition} to {piece.gameObject.name}'s possible moves (was adjacent)");
+				KoobyLogManager.Log(LogCategory.Matrix, $"Adding {oldPosition} to {piece.gameObject.name}'s possible moves (was adjacent)");
 				// This piece is adjacent to the newly unoccupied position, refresh its moves
 				piece.SetPossibleMoves(adjacentPositions);
 			}
@@ -365,11 +372,28 @@ public class GameManager : MonoBehaviour
 			npcPlayers.Add(npcPlayer);
 		}
 		
-		Debug.Log($"Initialized {npcPlayers.Count} AI players");
+		KoobyLogManager.Log(LogCategory.Manager, $"Initialized {npcPlayers.Count} AI players");
 	}
 	
 	private void OnNewTurnBegan(KoobPlayer player)
 	{
+		// Reset highlights from previous turn
+		if (highlightsManager != null)
+			highlightsManager.ResetHighlights();
+		
+		// Check for win opportunity (duplicate moves)
+		Vector3 winPosition;
+		var uniqueMoves = koobState.GetPossibleMovesForPlayer(player, out winPosition);
+		if (winPosition != Vector3.zero)
+		{
+			CurrentPlayerWillWinSoon?.Invoke(winPosition);
+			KoobyLogManager.Log(LogCategory.Player, $"Player {player.id} can win by moving to {winPosition}!");
+		}
+		
+		// Show highlights for possible moves
+		ShowHighlightsForPlayer(player);
+		
+		// Handle AI turn
 		if (!_enableAI || player == null) return;
 		int playerIndex = koobPlayers.IndexOf(player);
 		if (playerIndex < 0) return;
@@ -377,6 +401,24 @@ public class GameManager : MonoBehaviour
 		if (!isAI) return;
 		if (aiTurnCoroutine != null) StopCoroutine(aiTurnCoroutine);
 		aiTurnCoroutine = StartCoroutine(ExecuteAIMoveAfterDelay(player, aiMoveDelaySeconds));
+	}
+
+	private void ShowHighlightsForPlayer(KoobPlayer player)
+	{
+		if (highlightsManager == null || koobNodeSet == null) return;
+		
+		// Get unique possible moves for this player
+		Vector3 winPosition;
+		var uniqueMoves = koobState.GetPossibleMovesForPlayer(player, out winPosition);
+		
+		KoobyLogManager.Log(LogCategory.Manager, $"Showing {uniqueMoves.Count} highlights for Player {player.id}");
+		
+		// Place highlights for each possible move
+		foreach (var move in uniqueMoves)
+		{
+			Vector3 worldPosition = koobNodeSet.GetPos(move);
+			highlightsManager.PlaceHighlight(worldPosition);
+		}
 	}
 
 	private IEnumerator ExecuteAIMoveAfterDelay(KoobPlayer player, float delaySeconds)
@@ -390,6 +432,6 @@ public class GameManager : MonoBehaviour
 		if (bestMove == Vector3.zero) yield break;
 		var worldMove = koobNodeSet.GetPos(bestMove);
 		pieceToMove.Move(worldMove, bestMove);
-		Debug.Log($"AI Player {player.id} moved {pieceToMove.gameObject.name} to {bestMove}");
+		KoobyLogManager.Log(LogCategory.Player, $"AI Player {player.id} moved {pieceToMove.gameObject.name} to {bestMove}");
 	}
 } 

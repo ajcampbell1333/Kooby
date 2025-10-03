@@ -49,7 +49,7 @@ public class KoobState
 	{
 		if (!IsInBounds(x, y, z))
 		{
-			Debug.LogError($"GetNode out of bounds ({x},{y},{z})");
+			KoobyLogManager.LogError(LogCategory.Matrix, $"GetNode out of bounds ({x},{y},{z})");
 			return default;
 		}
 		return matrix[x][y][z];
@@ -59,7 +59,7 @@ public class KoobState
 	{
 		if (!IsInBounds(x, y, z))
 		{
-			Debug.LogError($"SetNode out of bounds ({x},{y},{z})");
+			KoobyLogManager.LogError(LogCategory.Matrix, $"SetNode out of bounds ({x},{y},{z})");
 			return;
 		}
 		matrix[x][y][z] = node;
@@ -96,12 +96,12 @@ public class KoobState
 
 	public void PrintKoobState()
 	{
-		Debug.Log("=== KoobState Debug ===");
+		KoobyLogManager.Log(LogCategory.Matrix, "=== KoobState Debug ===");
 		
 		// Print each Y layer (Z=0, Z=1, Z=2)
 		for (int z = 0; z < 3; z++)
 		{
-			Debug.Log($"Z = {z}:");
+				KoobyLogManager.Log(LogCategory.Matrix, $"Z = {z}:");
 			
 			// Print each row in this Y layer
 			for (int y = 2; y >= 0; y--) // Print from top to bottom (Y=2 to Y=0)
@@ -122,14 +122,14 @@ public class KoobState
 					// Add spacing between columns
 					if (x < 2) row += " ";
 				}
-				Debug.Log(row);
+					KoobyLogManager.Log(LogCategory.Matrix, row);
 			}
 			
 			// Add separator between layers
-			if (z < 2) Debug.Log("-------------------");
+				if (z < 2) KoobyLogManager.Log(LogCategory.Matrix, "-------------------");
 		}
 		
-		Debug.Log("=== End KoobState ===");
+		KoobyLogManager.Log(LogCategory.Matrix, "=== End KoobState ===");
 	}
 
 	public List<Vector3> GetPossibleMoves(Vector3 currentPosition)
@@ -236,6 +236,34 @@ public class KoobState
 		KoobNode node = GetNode(x, y, z);
 		if (!node.occupied)
 			possibleMoves.Add(new Vector3(x, y, z));
+	}
+
+	public List<Vector3> GetPossibleMovesForPlayer(KoobPlayer player, out Vector3 winPosition)
+	{
+		winPosition = Vector3.zero;
+		List<Vector3> allMoves = new List<Vector3>();
+		List<Vector3> uniqueMoves = new List<Vector3>();
+		
+		var pieces = player.GetPieces();
+		foreach (var piece in pieces)
+		{
+			var pieceMoves = GetPossibleMoves(piece.GetCurrentMatrixPosition());
+			foreach (var move in pieceMoves)
+			{
+				// Check if this move position already exists (duplicate)
+				if (allMoves.Contains(move))
+				{
+					// Duplicate found - this is a win position
+					winPosition = move;
+					// Don't add duplicate to unique moves
+					continue;
+				}
+				allMoves.Add(move);
+				uniqueMoves.Add(move);
+			}
+		}
+		
+		return uniqueMoves;
 	}
 
 	private bool IsInBounds(int x, int y, int z) => x >= 0 && x < 3 && y >= 0 && y < 3 && z >= 0 && z < 3;

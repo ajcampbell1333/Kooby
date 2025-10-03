@@ -24,7 +24,7 @@ public class PlayerPiece : MonoBehaviour
     {
         if (isMoving)
         {
-            Debug.LogWarning($"PlayerPiece {gameObject.name} is already moving!");
+			KoobyLogManager.LogWarning(LogCategory.Player, $"{gameObject.name} is already moving!");
             return;
         }
         
@@ -69,7 +69,7 @@ public class PlayerPiece : MonoBehaviour
         // Invoke the finished moving event
         FinishedMoving?.Invoke(this);
         
-        Debug.Log($"PlayerPiece {gameObject.name} finished moving to {destination}");
+		KoobyLogManager.Log(LogCategory.Player, $"{gameObject.name} finished moving to {destination}");
     }
     
     public void SetMoveCurve(ScriptableCurve curve)

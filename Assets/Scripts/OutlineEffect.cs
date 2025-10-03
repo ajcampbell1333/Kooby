@@ -27,8 +27,12 @@ public class OutlineEffect : MonoBehaviour
 	private bool _saveDebugMask = false;
 	private List<Renderer> _affectedRenderers = new List<Renderer>();
 	private Dictionary<Renderer, Material[]> _originalMaterials = new Dictionary<Renderer, Material[]>();
+	private Dictionary<Renderer, int> _originalLayers = new Dictionary<Renderer, int>();
 	private List<Renderer> _allRenderers = new List<Renderer>();
 	private List<Vector3> _objectScreenPositions = new List<Vector3>();
+	private Material[] _validTargetMaterials;
+	private Material _maskMaterial;
+	private const int MASK_LAYER = 31; // Use the last layer for masking
 
     private void OnEnable()
 	{
@@ -175,6 +179,14 @@ public class OutlineEffect : MonoBehaviour
             return;
         }
 
+        // Filter out null materials from target list
+        _validTargetMaterials = targetMaterials.Where(m => m != null).ToArray();
+        if (_validTargetMaterials.Length == 0)
+        {
+            Graphics.Blit(source, destination);
+            return;
+        }
+
         InitRT(source.width, source.height);
         if (_tempRT == null)
         {
@@ -184,6 +196,7 @@ public class OutlineEffect : MonoBehaviour
 
         _affectedRenderers.Clear();
         _originalMaterials.Clear();
+        _originalLayers.Clear();
 		_allRenderers.Clear();
         _objectScreenPositions.Clear();
         _allRenderers = Object.FindObjectsOfType<Renderer>().ToList();
@@ -196,6 +209,13 @@ public class OutlineEffect : MonoBehaviour
         _maskCamera.clearFlags = CameraClearFlags.SolidColor;
         _maskCamera.backgroundColor = Color.black;
         _maskCamera.targetTexture = _tempRT;
+        // Set mask camera to only render the mask layer
+        _maskCamera.cullingMask = 1 << MASK_LAYER;
+
+        if (_debugging)
+        {
+            Debug.Log($"OutlineEffect: Target materials configured: {string.Join(", ", System.Array.ConvertAll(_validTargetMaterials, m => m.name))}");
+        }
 
         
         for (int r = 0; r < _allRenderers.Count; r++)
@@ -204,14 +224,25 @@ public class OutlineEffect : MonoBehaviour
             var mats = renderer.sharedMaterials;
             if (mats == null || mats.Length == 0) continue;
 
+            if (_debugging)
+            {
+                Debug.Log($"OutlineEffect: Checking {renderer.gameObject.name} with materials: {string.Join(", ", System.Array.ConvertAll(mats, m => m != null ? m.name : "NULL"))}");
+                Debug.Log($"OutlineEffect: Target materials: {string.Join(", ", System.Array.ConvertAll(_validTargetMaterials, m => m.name))}");
+            }
+
             bool hasTarget = false;
             for (int i = 0; i < mats.Length; i++)
             {
-                for (int j = 0; j < targetMaterials.Length; j++)
+                for (int j = 0; j < _validTargetMaterials.Length; j++)
                 {
-                    if (mats[i] == targetMaterials[j])
+                    if (_debugging)
+                    {
+                        Debug.Log($"OutlineEffect: Comparing {mats[i]?.name} (ref: {mats[i]?.GetInstanceID()}) with {_validTargetMaterials[j]?.name} (ref: {_validTargetMaterials[j]?.GetInstanceID()})");
+                    }
+                    if (mats[i] == _validTargetMaterials[j])
                     {
                         hasTarget = true;
+                        if (_debugging) Debug.Log($"OutlineEffect: Match found! {mats[i].name} == {_validTargetMaterials[j].name}");
                         break;
                     }
                 }
@@ -220,24 +251,54 @@ public class OutlineEffect : MonoBehaviour
 
             if (hasTarget)
             {
+                // Store original materials and layer
                 _originalMaterials[renderer] = renderer.sharedMaterials;
+                _originalLayers[renderer] = renderer.gameObject.layer;
+                
+                // Assign stencil material and move to mask layer
                 var tempMats = new Material[renderer.sharedMaterials.Length];
                 for (int i = 0; i < tempMats.Length; i++)
                     tempMats[i] = _stencilWriteMaterial;
                 renderer.sharedMaterials = tempMats;
+                renderer.gameObject.layer = MASK_LAYER;
+                
                 _affectedRenderers.Add(renderer);
-                //Debug.Log($"Swapped material on: {renderer.gameObject.name}");
+                if (_debugging) Debug.Log($"OutlineEffect: Highlighting {renderer.gameObject.name} with materials: {string.Join(", ", System.Array.ConvertAll(renderer.sharedMaterials, m => m.name))}");
+                if (_debugging) Debug.Log($"OutlineEffect: Moved {renderer.gameObject.name} to layer {MASK_LAYER}");
+            }
+            else if (_debugging)
+            {
+                Debug.Log($"OutlineEffect: NO MATCH for {renderer.gameObject.name} - not adding to affected renderers");
             }
         }
+
 
         // Render the mask
         _maskCamera.Render();
 
-        // Restore original materials
+        // Restore original materials and layers
         foreach (var renderer in _affectedRenderers)
         {
             if (renderer != null && _originalMaterials.ContainsKey(renderer))
+            {
                 renderer.sharedMaterials = _originalMaterials[renderer];
+                if (_originalLayers.ContainsKey(renderer))
+                    renderer.gameObject.layer = _originalLayers[renderer];
+            }
+        }
+        
+        if (_debugging)
+        {
+            Debug.Log($"OutlineEffect: RenderMask complete. Affected renderers count: {_affectedRenderers.Count}");
+            foreach (var renderer in _affectedRenderers)
+            {
+                if (renderer != null)
+                    Debug.Log($"OutlineEffect: Affected renderer: {renderer.gameObject.name}");
+            }
+            Debug.Log($"OutlineEffect: Mask camera culling mask: {_maskCamera.cullingMask}");
+            Debug.Log($"OutlineEffect: Main camera culling mask: {_camera.cullingMask}");
+            // Save mask for debugging
+            _saveDebugMask = true;
         }
     }
 
@@ -274,6 +335,15 @@ public class OutlineEffect : MonoBehaviour
             ComputeBuffer buf = new ComputeBuffer(origins.Length, sizeof(float) * 2);
             buf.SetData(origins);
             _computeShader.SetBuffer(kOrigin, "_Origins", buf);
+            
+            if (_debugging)
+            {
+                Debug.Log($"OutlineEffect: Sending {origins.Length} object positions to compute shader");
+                for (int i = 0; i < origins.Length; i++)
+                {
+                    Debug.Log($"OutlineEffect: Origin {i}: {origins[i]}");
+                }
+            }
             _computeShader.SetInt("_OriginCount", origins.Length);
             _computeShader.Dispatch(kOrigin, (_tempRT.width+7)/8, (_tempRT.height+7)/8, 1);
             buf.Release();
@@ -314,33 +384,16 @@ public class OutlineEffect : MonoBehaviour
 	private void CollectAllObjectScreenPositions()
 	{
         _objectScreenPositions.Clear();
-        for (int r = 0; r < _allRenderers.Count; r++)
+        // Only process renderers that have target materials (same logic as RenderMask)
+        for (int r = 0; r < _affectedRenderers.Count; r++)
         {
-            var renderer = _allRenderers[r];
-            var mats = renderer.sharedMaterials;
-            if (mats == null || mats.Length == 0) continue;
-
-            bool hasTarget = false;
-            for (int i = 0; i < mats.Length; i++)
-            {
-                for (int j = 0; j < targetMaterials.Length; j++)
-                {
-                    if (mats[i] == targetMaterials[j])
-                    {
-                        hasTarget = true;
-                        break;
-                    }
-                }
-                if (hasTarget) break;
-            }
-
-            if (hasTarget)
-            {
-                var objectScreenPos = _camera.WorldToScreenPoint(renderer.bounds.center);
-                objectScreenPos.x /= Screen.width;
-                objectScreenPos.y /= Screen.height;
-                _objectScreenPositions.Add(objectScreenPos);
-            }
+            var renderer = _affectedRenderers[r];
+            if (renderer == null) continue;
+            
+            var objectScreenPos = _camera.WorldToScreenPoint(renderer.bounds.center);
+            objectScreenPos.x /= Screen.width;
+            objectScreenPos.y /= Screen.height;
+            _objectScreenPositions.Add(objectScreenPos);
         }
     }
 

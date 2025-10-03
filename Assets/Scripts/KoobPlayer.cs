@@ -10,12 +10,12 @@ public class KoobPlayer : MonoBehaviour
     {
         if (pieces.Count >= 2)
         {
-            Debug.LogError($"KoobPlayer {id}: Cannot assign more than 2 pieces. Current count: {pieces.Count}");
+			KoobyLogManager.LogError(LogCategory.Player, $"Cannot assign more than 2 pieces. Current count: {pieces.Count}");
             return;
         }
         
         pieces.Add(piece);
-        Debug.Log($"KoobPlayer {id}: Assigned piece {piece.gameObject.name}. Total pieces: {pieces.Count}");
+		KoobyLogManager.Log(LogCategory.Player, $"Assigned piece {piece.gameObject.name}. Total pieces: {pieces.Count}");
     }
     
     public List<PlayerPiece> GetPieces() => new List<PlayerPiece>(pieces);
