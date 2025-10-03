@@ -236,9 +236,7 @@ public class OutlineEffect : MonoBehaviour
                 for (int j = 0; j < _validTargetMaterials.Length; j++)
                 {
                     if (_debugging)
-                    {
                         Debug.Log($"OutlineEffect: Comparing {mats[i]?.name} (ref: {mats[i]?.GetInstanceID()}) with {_validTargetMaterials[j]?.name} (ref: {_validTargetMaterials[j]?.GetInstanceID()})");
-                    }
                     if (mats[i] == _validTargetMaterials[j])
                     {
                         hasTarget = true;
@@ -402,7 +400,7 @@ public class OutlineEffect : MonoBehaviour
         // Composite: keep source where mask is white, edge color elsewhere with falloff
         _blackOverlayMaterial.SetTexture("_MainTex", source);
         _blackOverlayMaterial.SetTexture("_MaskTex", _tempRT);
-    _blackOverlayMaterial.SetTexture("_SDFTex", _sdfRT);
+        _blackOverlayMaterial.SetTexture("_SDFTex", _sdfRT);
         _blackOverlayMaterial.SetTexture("_EdgeMinTex", _edgeMinRT);
         _blackOverlayMaterial.SetFloat("_FalloffDistance", falloffDistance);
         _blackOverlayMaterial.SetFloat("_FalloffPower", falloffPower);
