@@ -1,0 +1,15 @@
+Claude Unity Rules
+
+* Eliminate curly braces wherever possible.
+* Eliminate extra newline spaces wherever possible.
+* I like my C# concise, but don't place two or more statements (each finalized by a semicolon) on a single line.
+* You can inline an if condition with its single-line statement if both in total are less than 100 characters, but otherwise place the condition on one line and its statement on the next with an indent.
+* You can inline an 'else' under the same conditions as for 'if'.
+* Any time a function is more than ~30 lines of code, you should chunk it into sensible code blocks and place each code block into a helper method in a region called Helper Methods.
+* When refactoring code blocks into helper methods, use ref and out keywords appropriately to minimize total number of lines and prevent extra memory allocation.
+* Write comments where appropriate, but note that many comments are unnecessary if code blocks are chunked well with helper methods accurately named.
+* Use expression-bodied members liberally in favor of local vars any time it is more efficient or equivalent for memory management.
+* For simple assignment passthrough methods (like getters that just return a field), always use expression-bodied members instead of full method bodies.
+* Always use LINQ for filtering sizable data sets unless I specify otherwise.
+* Ask my permission before using reflection for anything.
+* If/else formatting: inline each branch if its condition+statement < 100 chars, but put else on its own line; never place both branches on the same line; one semicolon per line.
