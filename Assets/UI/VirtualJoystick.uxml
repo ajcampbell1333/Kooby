@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<engine:UXML
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:engine="UnityEngine.UIElements"
+    xmlns:editor="UnityEditor.UIElements"
+    xsi:noNamespaceSchemaLocation="../../../../../../../../UIElementsSchema/UIElements.xsd">
+    
+    <!-- Virtual Joystick Container -->
+    <engine:VisualElement name="joystick-container" class="joystick-container">
+        <!-- Outer Circle (Background) -->
+        <engine:VisualElement name="joystick-background" class="joystick-background">
+            <!-- Inner Circle (Knob) -->
+            <engine:VisualElement name="joystick-knob" class="joystick-knob" />
+        </engine:VisualElement>
+    </engine:VisualElement>
+    
+</engine:UXML>

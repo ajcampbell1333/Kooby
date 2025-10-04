@@ -1,11 +1,13 @@
 using UnityEngine;
 
-public enum LogCategory
-{
-    Manager,
-    Player,
-    Matrix
-}
+    public enum LogCategory
+    {
+        Manager,
+        Player,
+        Matrix,
+        UI_Input,
+        UI_Output
+    }
 
 public class KoobyLogManager : MonoBehaviour
 {
@@ -14,6 +16,8 @@ public class KoobyLogManager : MonoBehaviour
     [SerializeField] private bool enableManagerLogs = true;
     [SerializeField] private bool enablePlayerLogs = true;
     [SerializeField] private bool enableMatrixLogs = true;
+    [SerializeField] private bool enableUIInputLogs = true;
+    [SerializeField] private bool enableUIOutputLogs = true;
     
     private void Awake()
     {
@@ -49,6 +53,14 @@ public class KoobyLogManager : MonoBehaviour
                 shouldLog = Instance.enableMatrixLogs;
                 categoryName = "MATRIX";
                 break;
+            case LogCategory.UI_Input:
+                shouldLog = Instance.enableUIInputLogs;
+                categoryName = "UI_Input";
+                break;
+            case LogCategory.UI_Output:
+                shouldLog = Instance.enableUIOutputLogs;
+                categoryName = "UI_Output";
+                break;
         }
         
         if (shouldLog)
@@ -78,6 +90,14 @@ public class KoobyLogManager : MonoBehaviour
                 shouldLog = Instance.enableMatrixLogs;
                 categoryName = "MATRIX";
                 break;
+            case LogCategory.UI_Input:
+                shouldLog = Instance.enableUIInputLogs;
+                categoryName = "UI_Input";
+                break;
+            case LogCategory.UI_Output:
+                shouldLog = Instance.enableUIOutputLogs;
+                categoryName = "UI_Output";
+                break;
         }
         
         if (shouldLog)
@@ -106,6 +126,14 @@ public class KoobyLogManager : MonoBehaviour
             case LogCategory.Matrix:
                 shouldLog = Instance.enableMatrixLogs;
                 categoryName = "MATRIX";
+                break;
+            case LogCategory.UI_Input:
+                shouldLog = Instance.enableUIInputLogs;
+                categoryName = "UI_Input";
+                break;
+            case LogCategory.UI_Output:
+                shouldLog = Instance.enableUIOutputLogs;
+                categoryName = "UI_Output";
                 break;
         }
         

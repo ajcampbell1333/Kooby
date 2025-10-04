@@ -1,0 +1,109 @@
+/* Virtual Joystick Styles */
+
+.joystick-container {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    pointer-events: none; /* Allow touches to pass through to the game */
+}
+
+.joystick-background {
+    width: 100px;
+    height: 100px;
+    border-radius: 50px;
+    background-color: rgba(255, 255, 255, 0.3);
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.6);
+    border-style: solid;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+}
+
+.joystick-knob {
+    width: 50px;
+    height: 50px;
+    border-radius: 25px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 1.0);
+    border-style: solid;
+    position: absolute;
+    top: 25px;
+    left: 25px;
+    transition-property: left, top;
+    transition-duration: 0.1s;
+    transition-timing-function: ease-out;
+}
+
+/* Alternative color scheme for better visibility */
+.joystick-background.alt-theme {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-color: rgba(0, 0, 0, 0.6);
+}
+
+.joystick-knob.alt-theme {
+    background-color: rgba(0, 0, 0, 0.8);
+    border-color: rgba(0, 0, 0, 1.0);
+}
+
+/* High contrast theme for accessibility */
+.joystick-background.high-contrast {
+    background-color: rgba(0, 0, 0, 0.7);
+    border-color: rgba(255, 255, 255, 0.9);
+    border-width: 3px;
+}
+
+.joystick-knob.high-contrast {
+    background-color: rgba(255, 255, 255, 0.9);
+    border-color: rgba(0, 0, 0, 1.0);
+    border-width: 2px;
+}
+
+/* Glow effect for active state */
+.joystick-background.active {
+    box-shadow: 0px 0px 20px rgba(255, 255, 255, 0.5);
+}
+
+.joystick-knob.active {
+    box-shadow: 0px 0px 15px rgba(255, 255, 255, 0.7);
+}
+
+/* Size variants */
+.joystick-container.small {
+    width: 80px;
+    height: 80px;
+}
+
+.joystick-container.small .joystick-background {
+    width: 80px;
+    height: 80px;
+    border-radius: 40px;
+}
+
+.joystick-container.small .joystick-knob {
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    top: 20px;
+    left: 20px;
+}
+
+.joystick-container.large {
+    width: 120px;
+    height: 120px;
+}
+
+.joystick-container.large .joystick-background {
+    width: 120px;
+    height: 120px;
+    border-radius: 60px;
+}
+
+.joystick-container.large .joystick-knob {
+    width: 60px;
+    height: 60px;
+    border-radius: 30px;
+    top: 30px;
+    left: 30px;
+}
