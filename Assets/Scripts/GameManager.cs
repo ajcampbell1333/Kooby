@@ -30,6 +30,7 @@ public class GameManager : MonoBehaviour
 			private List<NPCPlayer> npcPlayers = new List<NPCPlayer>();
 			private Coroutine aiTurnCoroutine;
 			private HighlightsManager highlightsManager;
+			private CameraOrbit cameraOrbit;
 			
 			private const int NUM_PLAYERS = 4;
 			private const int PIECES_PER_PLAYER = 2;
@@ -43,13 +44,22 @@ public class GameManager : MonoBehaviour
 		if (highlightsManager == null)
 			KoobyLogManager.LogWarning(LogCategory.Manager, "HighlightsManager component not found on same GameObject.");
 		
+		// Get reference to CameraOrbit
+		cameraOrbit = Camera.main.GetComponent<CameraOrbit>();
+		if (cameraOrbit == null)
+			KoobyLogManager.LogWarning(LogCategory.Manager, "CameraOrbit component not found on Main Camera.");
+		
 		if (koobMatrixPrefab)
 		{
 			koobMatrixInstance = Instantiate(koobMatrixPrefab);
 			koobNodeSet = koobMatrixInstance.GetComponent<KoobNodeSet>();
 			
-		if (koobNodeSet == null)
-			KoobyLogManager.LogWarning(LogCategory.Manager, "KoobNodeSet component not found on koobMatrixInstance.");
+			if (koobNodeSet == null)
+				KoobyLogManager.LogWarning(LogCategory.Manager, "KoobNodeSet component not found on koobMatrixInstance.");
+			
+			// Set the matrix as the camera orbit target
+			if (cameraOrbit != null)
+				cameraOrbit.SetOrbitTarget(koobMatrixInstance.transform);
 		}
 		else
 			KoobyLogManager.LogWarning(LogCategory.Manager, "Koob Matrix Prefab not assigned.");
