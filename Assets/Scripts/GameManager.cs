@@ -9,9 +9,12 @@ public class GameManager : MonoBehaviour
 		#region public vars
 			public KoobState koobState;
 			public KoobNodeSet koobNodeSet;
-			public KoobPlayer GetCurrentPlayer() => gameStateMachine.CurrentPlayer;
-			public UnityAction<KoobPlayer> GameWon;
-			public UnityAction<Vector3> CurrentPlayerWillWinSoon;
+		public KoobPlayer GetCurrentPlayer() => gameStateMachine.CurrentPlayer;
+		public UnityAction<KoobPlayer> GameWon;
+		public UnityAction<Vector3> CurrentPlayerWillWinSoon;
+		
+		public int GetCurrentPlayerIndex(KoobPlayer player) => koobPlayers.IndexOf(player);
+		public bool IsPlayerAIControlled(int playerIndex) => aiControlledPlayers != null && aiControlledPlayers.Length > playerIndex && aiControlledPlayers[playerIndex];
 		#endregion public vars
 		
 		#region private vars

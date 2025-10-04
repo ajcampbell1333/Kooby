@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Events;
+using UnityEngine.UIElements;
+using System.Linq;
 
 public class InputManagerUIToolkit : MonoBehaviour
 {
@@ -21,6 +23,7 @@ public class InputManagerUIToolkit : MonoBehaviour
     private VirtualJoystickUIToolkit virtualJoystick;
     private bool isUsingTouch = false;
     private bool isUsingMouse = false;
+    private bool joystickEnabled = true; // Track if joystick should be enabled
     
     private void Awake()
     {
@@ -145,6 +148,13 @@ public class InputManagerUIToolkit : MonoBehaviour
         KoobyLogManager.Log(LogCategory.UI_Input, $"OnMouseInput called: {context.phase}");
         if (context.performed)
         {
+            // Check if joystick is enabled (not over UI)
+            if (!joystickEnabled)
+            {
+                KoobyLogManager.Log(LogCategory.UI_Input, "Joystick disabled due to UI hover, ignoring activation");
+                return;
+            }
+            
             isUsingMouse = true;
             isUsingTouch = false;
             
@@ -169,6 +179,9 @@ public class InputManagerUIToolkit : MonoBehaviour
     
     private void Update()
     {
+        // Continuously check if joystick should be enabled based on UI hover state
+        UpdateJoystickEnabledState();
+        
         if (virtualJoystick == null || !virtualJoystick.IsActive()) return;
         
         // Handle continuous input (delta movement)
@@ -200,5 +213,95 @@ public class InputManagerUIToolkit : MonoBehaviour
     public bool IsThumbstickActive()
     {
         return virtualJoystick != null && virtualJoystick.IsActive();
+    }
+    
+    private void UpdateJoystickEnabledState()
+    {
+        // Continuously update joystick enabled state based on UI hover
+        bool wasEnabled = joystickEnabled;
+        joystickEnabled = !IsMouseOverUI();
+        
+        // Log state changes for debugging
+        if (wasEnabled != joystickEnabled)
+        {
+            KoobyLogManager.Log(LogCategory.UI_Input, $"Joystick enabled state changed: {joystickEnabled}");
+        }
+    }
+    
+    private bool IsMouseOverUI()
+    {
+        // Check if mouse is over any interactive UI Toolkit element by finding all UIDocuments
+        var mousePosition = Input.mousePosition;
+        var uiDocuments = FindObjectsOfType<UIDocument>();
+        
+        foreach (var uiDoc in uiDocuments)
+        {
+            if (uiDoc.rootVisualElement != null)
+            {
+                // Use the exact same coordinate conversion as the joystick
+                var uiPosition = ScreenToUIPosition(mousePosition);
+                
+                // Debug: Log detailed coordinate conversion AND UI element positions
+                Rect gameViewRect = Camera.main.pixelRect;
+                Vector2 gameViewPos = new Vector2(mousePosition.x - gameViewRect.x, mousePosition.y - gameViewRect.y);
+                float flippedY = gameViewRect.height - gameViewPos.y;
+                float percentX = (gameViewPos.x / gameViewRect.width) * 100f;
+                float percentY = (flippedY / gameViewRect.height) * 100f;
+                
+                // Let's also log the actual UI element positions to understand their coordinate system
+                var root = uiDoc.rootVisualElement;
+                var statusLabel = root.Q<Label>("turnStatusLabel");
+                var buttonRow = root.Q<VisualElement>("button-row");
+                
+                string statusPos = statusLabel != null ? $"Status: ({statusLabel.layout.x:F1}, {statusLabel.layout.y:F1}, {statusLabel.layout.width:F1}x{statusLabel.layout.height:F1})" : "Status: null";
+                string buttonPos = buttonRow != null ? $"Buttons: ({buttonRow.layout.x:F1}, {buttonRow.layout.y:F1}, {buttonRow.layout.width:F1}x{buttonRow.layout.height:F1})" : "Buttons: null";
+                
+                KoobyLogManager.Log(LogCategory.UI_Input, $"COORDINATE DEBUG: Raw mouse: ({mousePosition.x:F1}, {mousePosition.y:F1}) -> GameView: ({gameViewPos.x:F1}, {gameViewPos.y:F1}) -> Flipped: ({gameViewPos.x:F1}, {flippedY:F1}) -> Percent: ({percentX:F1}%, {percentY:F1}%) -> Final: ({uiPosition.x:F1}, {uiPosition.y:F1}) | {statusPos} | {buttonPos}");
+                
+                var pickedElement = uiDoc.rootVisualElement.panel.Pick(uiPosition);
+                if (pickedElement != null)
+                {
+                    // Debug: Log what element was picked
+                    KoobyLogManager.Log(LogCategory.UI_Input, $"Picked element: {pickedElement.GetType().Name}, Name: {pickedElement.name}");
+                    
+                    // Only consider interactive elements (buttons, etc.)
+                    // Check if the element or its parent is a button
+                    var currentElement = pickedElement;
+                    while (currentElement != null)
+                    {
+                        // Check if this element is a button
+                        if (currentElement is Button)
+                        {
+                            KoobyLogManager.Log(LogCategory.UI_Input, $"Found button: {currentElement.name}");
+                            return true;
+                        }
+                        currentElement = currentElement.parent;
+                    }
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    private Vector2 ScreenToUIPosition(Vector2 screenPosition)
+    {
+        // Get the actual Game View size (not full screen)
+        Rect gameViewRect = Camera.main.pixelRect;
+        
+        // Convert screen position to Game View coordinates
+        Vector2 gameViewPos = new Vector2(
+            screenPosition.x - gameViewRect.x,
+            screenPosition.y - gameViewRect.y
+        );
+        
+        // Flip Y coordinate for UI Toolkit (Game View uses top-left origin, UI Toolkit uses bottom-left)
+        float flippedY = gameViewRect.height - gameViewPos.y;
+        
+        // Fine-tune both axes to 0.80x for precise 10% boundary
+        float scaledX = gameViewPos.x * 0.80f;  // Scale X to get 10% boundary
+        float scaledY = flippedY * 0.80f;       // Scale Y to get 10% boundary
+        
+        return new Vector2(scaledX, scaledY);
     }
 }
