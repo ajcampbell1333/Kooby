@@ -191,7 +191,8 @@ public class HUDManager : MonoBehaviour
     private void OnMoveButtonClicked()
     {
         KoobyLogManager.Log(LogCategory.UI_Output, "Move button clicked");
-        // TODO: Implement move button functionality
+        if (gameManager == null) return;
+        gameManager.ExecuteCurrentMoveChoice();
     }
     
     private void OnRightButtonClicked()

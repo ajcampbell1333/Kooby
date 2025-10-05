@@ -110,4 +110,5 @@ public class PlayerPiece : MonoBehaviour
     
     public void SetOwnerPlayer(KoobPlayer player) => ownerPlayer = player;
     public KoobPlayer GetOwnerPlayer() => ownerPlayer;
+    public int GetOwnerPlayerId() => ownerPlayer != null ? ownerPlayer.id : 0;
 }

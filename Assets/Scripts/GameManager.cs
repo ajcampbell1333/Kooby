@@ -77,96 +77,19 @@ public class GameManager : MonoBehaviour
 
 	private void Start()
 	{
-		// Get reference to HighlightsManager
-		highlightsManager = GetComponent<HighlightsManager>();
-		if (highlightsManager == null)
-			KoobyLogManager.LogWarning(LogCategory.Manager, "HighlightsManager component not found on same GameObject.");
-		
-		// Get reference to CameraOrbit
-		cameraOrbit = Camera.main.GetComponent<CameraOrbit>();
-		if (cameraOrbit == null)
-			KoobyLogManager.LogWarning(LogCategory.Manager, "CameraOrbit component not found on Main Camera.");
-		
-		// Get reference to HUDManager and subscribe to button events
-		var hudManager = FindObjectOfType<HUDManager>();
-		if (hudManager != null)
-		{
-			hudManager.LeftButtonClicked += () => CycleMoveChoice(false);  // Backward
-			hudManager.RightButtonClicked += () => CycleMoveChoice(true);  // Forward
-			KoobyLogManager.Log(LogCategory.Manager, "Subscribed to HUD button events");
-		}
-		else
-		{
-			KoobyLogManager.LogWarning(LogCategory.Manager, "HUDManager not found in scene");
-		}
-		
-		if (koobMatrixPrefab)
-		{
-			koobMatrixInstance = Instantiate(koobMatrixPrefab);
-			koobNodeSet = koobMatrixInstance.GetComponent<KoobNodeSet>();
-			
-			if (koobNodeSet == null)
-				KoobyLogManager.LogWarning(LogCategory.Manager, "KoobNodeSet component not found on koobMatrixInstance.");
-			
-			// Set the matrix as the camera orbit target
-			if (cameraOrbit != null)
-				cameraOrbit.SetOrbitTarget(koobMatrixInstance.transform);
-		}
-		else
-			KoobyLogManager.LogWarning(LogCategory.Manager, "Koob Matrix Prefab not assigned.");
-
-		koobState = new KoobState();
-		koobState.ResetBoard();
-		
-		// Initialize GameStateMachine
-		gameStateMachine = new GameStateMachine();
-		
-		// Create players before starting the game
-		CreatePlayers();
-		
+		InitManagersAndHUD();
+		InitMatrixAndNodeSet();
+		InitStateAndPlayers();
 		StartGame();
 	}
 	
 	public void StartGame()
 	{
-		if (playerPieceMaterials == null || playerPieceMaterials.Length < 4)
-		{
-			KoobyLogManager.LogError(LogCategory.Manager, "Player Piece Materials array not properly assigned. Need 4 materials for players 1, 2, 3, 4.");
-			return;
-		}
-		
-		if (koobNodeSet == null)
-		{
-			KoobyLogManager.LogError(LogCategory.Manager, "KoobNodeSet not available. Make sure koobMatrixPrefab has KoobNodeSet component.");
-			return;
-		}
-		
-		// Create player pieces
-		CreatePlayerPieces();
-		
-		// Initialize KoobState to reflect the starting game state
-		koobState.ResetBoard();
-		InitializeKoobStateWithStartingPositions();
-		koobState.PrintKoobState();
-		
-		// Initialize AI players and subscribe before setting the first current player
-		if (_enableAI)
-		{
-			InitializeAIPlayers();
-			GameStateMachine.NewTurnBegan += OnNewTurnBegan;
-		}
-		
-		// Set Player 1 as the current player (will fire NewTurnBegan and trigger AI if enabled)
-		gameStateMachine.SetCurrentPlayer(koobPlayers[0]);
-		
-		KoobyLogManager.Log(LogCategory.Manager, $"Game started! Created {NUM_PLAYERS * PIECES_PER_PLAYER} player pieces total.");
-		
-		// Initialize debug motion if enabled
-		if (_debugMotion)
-		{
-			var randomMoves = gameObject.AddComponent<RandomContinuousMoves>();
-			randomMoves.Initialize(this, allPlayerPieces);
-		}
+		if (!ValidateConfig()) return;
+		SetupPiecesAndState();
+		SetupAIIfEnabled();
+		SetInitialPlayer();
+		EnableDebugMotionIfRequested();
 	}
 
 	private void OnDestroy()
@@ -190,9 +113,9 @@ public class GameManager : MonoBehaviour
 		int y = Mathf.RoundToInt(newPosition.y);
 		int z = Mathf.RoundToInt(newPosition.z);
 		
-		// Get the player ID from the piece name (e.g., "Player1_Piece1" -> player ID 1)
+		// Use stored owner player id instead of parsing from name
 		string pieceName = piece.gameObject.name;
-		int playerID = int.Parse(pieceName.Substring(6, 1)); // Extract player number
+		int playerID = piece.GetOwnerPlayerId();
 		
 		// Debug: Print the move details BEFORE updating KoobState
 		KoobyLogManager.Log(LogCategory.Matrix, $"Move: {pieceName} from {oldPosition} to {newPosition}");
@@ -220,6 +143,118 @@ public class GameManager : MonoBehaviour
 		gameStateMachine.SetCurrentPlayer(koobPlayers[nextPlayerIndex]);
 		
 		KoobyLogManager.Log(LogCategory.Manager, $"Updated KoobState for {pieceName} at position ({x},{y},{z}). Next player: Player{nextPlayerIndex + 1}");
+	}
+
+	#region Helper Methods
+	private void InitManagersAndHUD()
+	{
+		highlightsManager = GetComponent<HighlightsManager>();
+		if (highlightsManager == null)
+			KoobyLogManager.LogWarning(LogCategory.Manager, "HighlightsManager component not found on same GameObject.");
+		cameraOrbit = Camera.main.GetComponent<CameraOrbit>();
+		if (cameraOrbit == null)
+			KoobyLogManager.LogWarning(LogCategory.Manager, "CameraOrbit component not found on Main Camera.");
+		var hudManager = FindObjectOfType<HUDManager>();
+		if (hudManager != null)
+		{
+			hudManager.LeftButtonClicked += () => CycleMoveChoice(false);
+			hudManager.RightButtonClicked += () => CycleMoveChoice(true);
+			KoobyLogManager.Log(LogCategory.Manager, "Subscribed to HUD button events");
+		}
+		else
+			KoobyLogManager.LogWarning(LogCategory.Manager, "HUDManager not found in scene");
+	}
+
+	private void InitMatrixAndNodeSet()
+	{
+		if (!koobMatrixPrefab)
+		{
+			KoobyLogManager.LogWarning(LogCategory.Manager, "Koob Matrix Prefab not assigned.");
+			return;
+		}
+		koobMatrixInstance = Instantiate(koobMatrixPrefab);
+		koobNodeSet = koobMatrixInstance.GetComponent<KoobNodeSet>();
+		if (koobNodeSet == null)
+			KoobyLogManager.LogWarning(LogCategory.Manager, "KoobNodeSet component not found on koobMatrixInstance.");
+		if (cameraOrbit != null)
+			cameraOrbit.SetOrbitTarget(koobMatrixInstance.transform);
+	}
+
+	private void InitStateAndPlayers()
+	{
+		koobState = new KoobState();
+		koobState.ResetBoard();
+		gameStateMachine = new GameStateMachine();
+		CreatePlayers();
+	}
+
+	private bool ValidateConfig()
+	{
+		if (playerPieceMaterials == null || playerPieceMaterials.Length < 4)
+		{
+			KoobyLogManager.LogError(LogCategory.Manager, "Player Piece Materials array not properly assigned. Need 4 materials for players 1, 2, 3, 4.");
+			return false;
+		}
+		if (koobNodeSet == null)
+		{
+			KoobyLogManager.LogError(LogCategory.Manager, "KoobNodeSet not available. Make sure koobMatrixPrefab has KoobNodeSet component.");
+			return false;
+		}
+		return true;
+	}
+
+	private void SetupPiecesAndState()
+	{
+		CreatePlayerPieces();
+		koobState.ResetBoard();
+		InitializeKoobStateWithStartingPositions();
+		koobState.PrintKoobState();
+	}
+
+	private void SetupAIIfEnabled()
+	{
+		if (!_enableAI) return;
+		InitializeAIPlayers();
+		GameStateMachine.NewTurnBegan += OnNewTurnBegan;
+	}
+
+	private void SetInitialPlayer()
+	{
+		gameStateMachine.SetCurrentPlayer(koobPlayers[0]);
+		KoobyLogManager.Log(LogCategory.Manager, $"Game started! Created {NUM_PLAYERS * PIECES_PER_PLAYER} player pieces total.");
+	}
+
+	private void EnableDebugMotionIfRequested()
+	{
+		if (!_debugMotion) return;
+		var randomMoves = gameObject.AddComponent<RandomContinuousMoves>();
+		randomMoves.Initialize(this, allPlayerPieces);
+	}
+	#endregion Helper Methods
+
+	public void ExecuteCurrentMoveChoice()
+	{
+		var player = gameStateMachine.CurrentPlayer;
+		if (player == null) return;
+		if (currentPossibleMoves == null || currentPossibleMoves.Count == 0) return;
+		if (currentMoveChoice < 0 || currentMoveChoice >= currentPossibleMoves.Count) return;
+		Vector3 logicalDestination = currentPossibleMoves[currentMoveChoice];
+		var playerPieces = player.GetPieces();
+		if (playerPieces == null || playerPieces.Count == 0) return;
+		PlayerPiece mover = null;
+		foreach (var p in playerPieces)
+		{
+			var moves = p.GetPossibleMoves();
+			if (moves.Contains(logicalDestination))
+			{
+				mover = p;
+				break;
+			}
+		}
+		if (mover == null) return;
+		Vector3 worldDestination = koobNodeSet.GetPos(logicalDestination);
+		mover.Move(worldDestination, logicalDestination);
+		KoobyLogManager.Log(LogCategory.Player, $"Human Player {player.id} moved {mover.gameObject.name} to {logicalDestination}");
 	}
 
 	private bool CheckForWin(KoobPlayer player)
