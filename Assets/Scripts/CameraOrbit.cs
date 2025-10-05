@@ -7,6 +7,7 @@ public class CameraOrbit : MonoBehaviour
     [SerializeField] private float orbitSpeed = 30f;
     [SerializeField] private float orbitRadius = 10f;
     [SerializeField] private float orbitHeight = 5f;
+    [SerializeField] private float initialOrbitAngle = 45f;
     
     [Header("Input")]
     [SerializeField] private InputManagerUIToolkit inputManager;
@@ -33,7 +34,8 @@ public class CameraOrbit : MonoBehaviour
         inputManager.OnThumbstickActive.AddListener(OnThumbstickInput);
         inputManager.OnThumbstickReleased.AddListener(OnThumbstickReleased);
         
-        // Initialize camera position
+        // Initialize camera position with initial angle offset
+        currentOrbitAngle = initialOrbitAngle;
         UpdateCameraPosition();
         
         KoobyLogManager.Log(LogCategory.UI_Output, "CameraOrbit initialized");
