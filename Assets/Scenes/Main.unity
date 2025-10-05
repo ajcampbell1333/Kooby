@@ -250,7 +250,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   orbitTarget: {fileID: 0}
-  orbitSpeed: 30
+  orbitSpeed: 50
   orbitRadius: 10
   orbitHeight: 5
   inputManager: {fileID: 0}
@@ -582,7 +582,7 @@ MonoBehaviour:
   playerMoveCurve: {fileID: 11400000, guid: 12b754f02a8a71a41a66c728542ff643, type: 2}
   _debugMotion: 0
   _enableAI: 1
-  aiControlledPlayers: 01010101
+  aiControlledPlayers: 00010101
   aiMoveDelaySeconds: 1
 --- !u!4 &1080682373
 Transform:

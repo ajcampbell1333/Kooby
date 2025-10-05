@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.InputSystem;
+using UnityEngine.Events;
 
 public class HUDManager : MonoBehaviour
 {
@@ -11,6 +12,10 @@ public class HUDManager : MonoBehaviour
     
     [Header("References")]
     [SerializeField] private GameManager gameManager;
+    
+    // Button click events
+    public UnityAction LeftButtonClicked;
+    public UnityAction RightButtonClicked;
     
     // UI Elements
     private Label turnStatusLabel;
@@ -179,8 +184,8 @@ public class HUDManager : MonoBehaviour
     // Button event handlers using UI Toolkit's built-in system
     private void OnLeftButtonClicked()
     {
-        KoobyLogManager.Log(LogCategory.UI_Output, "Left button clicked");
-        // TODO: Implement left button functionality
+        KoobyLogManager.Log(LogCategory.UI_Output, "Left button clicked - cycling move choice backward");
+        LeftButtonClicked?.Invoke();
     }
     
     private void OnMoveButtonClicked()
@@ -191,7 +196,7 @@ public class HUDManager : MonoBehaviour
     
     private void OnRightButtonClicked()
     {
-        KoobyLogManager.Log(LogCategory.UI_Output, "Right button clicked");
-        // TODO: Implement right button functionality
+        KoobyLogManager.Log(LogCategory.UI_Output, "Right button clicked - cycling move choice forward");
+        RightButtonClicked?.Invoke();
     }
 }

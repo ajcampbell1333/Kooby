@@ -19,6 +19,9 @@ public class VirtualJoystickUIToolkit : MonoBehaviour
     [SerializeField] private float fadeOutDuration = 0.3f;
     [SerializeField] private float deadZone = 0.1f;
     
+    // position compensation for a strange seemingly random offset that appeared on only the container (not the knob) for reasons unknown - remove if cause is discovered and resolved
+    private const float ghostOffset = 5f;
+    
     [Header("Events")]
     public UnityEvent<Vector2> OnThumbstickActive;
     public UnityEvent OnThumbstickReleased;
@@ -119,20 +122,25 @@ public class VirtualJoystickUIToolkit : MonoBehaviour
         // Convert screen position to UI Toolkit coordinates
         Vector2 uiPosition = ScreenToUIPosition(screenPosition);
         
-        // Position the joystick container (center it on the mouse position)
-        // Try percentage-based positioning to handle coordinate system scaling
-        joystickContainer.style.position = Position.Absolute;
-        joystickContainer.style.left = new StyleLength(new Length((uiPosition.x - joystickRadius) / Screen.width * 100, LengthUnit.Percent));
-        joystickContainer.style.top = new StyleLength(new Length((uiPosition.y - joystickRadius) / Screen.height * 100, LengthUnit.Percent));
-        
+        // Get Game View dimensions for percentage calculation
         Rect gameViewRect = Camera.main.pixelRect;
-        KoobyLogManager.Log(LogCategory.UI_Input, $"JOYSTICK DEBUG: Screen({screenPosition.x:F1},{screenPosition.y:F1}) -> UI({uiPosition.x:F1},{uiPosition.y:F1}) -> Container({uiPosition.x - joystickRadius:F1},{uiPosition.y - joystickRadius:F1}) -> Actual({joystickContainer.style.left.value.value:F1},{joystickContainer.style.top.value.value:F1}) | Radius:{joystickRadius} | ScreenSize:{Screen.width}x{Screen.height} | GameViewSize:{gameViewRect.width}x{gameViewRect.height} | YOffset:{screenPosition.y - uiPosition.y:F1}");
+        
+        // Position the joystick container (center it on the mouse position)
+        // Add ghostOffset to fix container position
+        joystickContainer.style.position = Position.Absolute;
+        joystickContainer.style.left = new StyleLength(new Length((uiPosition.x - joystickRadius + ghostOffset) / gameViewRect.width * 100, LengthUnit.Percent));
+        joystickContainer.style.top = new StyleLength(new Length((uiPosition.y - joystickRadius + ghostOffset) / gameViewRect.height * 100, LengthUnit.Percent));
+        KoobyLogManager.Log(LogCategory.UI_Input, $"JOYSTICK_POSITIONING: Screen({screenPosition.x:F1},{screenPosition.y:F1}) -> UI({uiPosition.x:F1},{uiPosition.y:F1}) -> Container({uiPosition.x - joystickRadius:F1},{uiPosition.y - joystickRadius:F1}) -> Actual({joystickContainer.style.left.value.value:F1},{joystickContainer.style.top.value.value:F1}) | Radius:{joystickRadius} | ScreenSize:{Screen.width}x{Screen.height} | GameViewSize:{gameViewRect.width}x{gameViewRect.height} | YOffset:{screenPosition.y - uiPosition.y:F1}");
+        
+        // Debug: Check if the background circle is misaligned
+        KoobyLogManager.Log(LogCategory.UI_Input, $"JOYSTICK_BACKGROUND: Expected center at ({uiPosition.x:F1},{uiPosition.y:F1}), Container positioned at ({uiPosition.x - joystickRadius:F1},{uiPosition.y - joystickRadius:F1}), Radius:{joystickRadius}");
         
         // Reset knob position to center
+        // Subtract ghostOffset to compensate for container being moved +ghostOffset
         if (joystickKnob != null)
         {
-            joystickKnob.style.left = joystickRadius - 25f; // Center the knob (assuming 50px knob size)
-            joystickKnob.style.top = joystickRadius - 25f;
+            joystickKnob.style.left = joystickRadius - 25f - ghostOffset; // Center the knob minus container offset
+            joystickKnob.style.top = joystickRadius - 25f - ghostOffset;
         }
         
         // Store the center position

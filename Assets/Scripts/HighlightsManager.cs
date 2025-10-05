@@ -57,6 +57,17 @@ public class HighlightsManager : MonoBehaviour
 		nextAvailableIndex++;
 	}
 	
+	public void PlaceSingleHighlight(Vector3 worldPosition)
+	{
+		// Reset all highlights first
+		ResetHighlights();
+		
+		// Place only one highlight at the specified position
+		PlaceHighlight(worldPosition);
+		
+		KoobyLogManager.Log(LogCategory.Manager, $"Placed single highlight at {worldPosition}");
+	}
+	
 	public void ResetHighlights()
 	{
 		foreach (GameObject highlight in highlightPool)

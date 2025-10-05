@@ -13,8 +13,43 @@ public class GameManager : MonoBehaviour
 		public UnityAction<KoobPlayer> GameWon;
 		public UnityAction<Vector3> CurrentPlayerWillWinSoon;
 		
+		// Move choice cycling
+		public int currentMoveChoice { get; private set; } = 0;
+		public List<Vector3> currentPossibleMoves { get; private set; } = new List<Vector3>();
+		
 		public int GetCurrentPlayerIndex(KoobPlayer player) => koobPlayers.IndexOf(player);
 		public bool IsPlayerAIControlled(int playerIndex) => aiControlledPlayers != null && aiControlledPlayers.Length > playerIndex && aiControlledPlayers[playerIndex];
+		
+		public void CycleMoveChoice(bool forward)
+		{
+			if (currentPossibleMoves.Count == 0) return;
+			
+			if (forward)
+			{
+				currentMoveChoice = (currentMoveChoice + 1) % currentPossibleMoves.Count;
+			}
+			else
+			{
+				currentMoveChoice = (currentMoveChoice - 1 + currentPossibleMoves.Count) % currentPossibleMoves.Count;
+			}
+			
+			KoobyLogManager.Log(LogCategory.Manager, $"Move choice cycled to index {currentMoveChoice} of {currentPossibleMoves.Count} possible moves");
+			
+			// Update the highlight to show the new selected move
+			UpdateHighlightForCurrentMove();
+		}
+		
+		private void UpdateHighlightForCurrentMove()
+		{
+			if (highlightsManager == null || koobNodeSet == null) return;
+			if (currentPossibleMoves.Count == 0 || currentMoveChoice >= currentPossibleMoves.Count) return;
+			
+			Vector3 selectedMove = currentPossibleMoves[currentMoveChoice];
+			Vector3 worldPosition = koobNodeSet.GetPos(selectedMove);
+			highlightsManager.PlaceSingleHighlight(worldPosition);
+			
+			KoobyLogManager.Log(LogCategory.Manager, $"Updated highlight to show move {currentMoveChoice} at {worldPosition}");
+		}
 		#endregion public vars
 		
 		#region private vars
@@ -51,6 +86,19 @@ public class GameManager : MonoBehaviour
 		cameraOrbit = Camera.main.GetComponent<CameraOrbit>();
 		if (cameraOrbit == null)
 			KoobyLogManager.LogWarning(LogCategory.Manager, "CameraOrbit component not found on Main Camera.");
+		
+		// Get reference to HUDManager and subscribe to button events
+		var hudManager = FindObjectOfType<HUDManager>();
+		if (hudManager != null)
+		{
+			hudManager.LeftButtonClicked += () => CycleMoveChoice(false);  // Backward
+			hudManager.RightButtonClicked += () => CycleMoveChoice(true);  // Forward
+			KoobyLogManager.Log(LogCategory.Manager, "Subscribed to HUD button events");
+		}
+		else
+		{
+			KoobyLogManager.LogWarning(LogCategory.Manager, "HUDManager not found in scene");
+		}
 		
 		if (koobMatrixPrefab)
 		{
@@ -403,14 +451,31 @@ public class GameManager : MonoBehaviour
 			KoobyLogManager.Log(LogCategory.Player, $"Player {player.id} can win by moving to {winPosition}!");
 		}
 		
-		// Show highlights for possible moves
+		// Initialize move choice for human players BEFORE showing highlights
+		int playerIndex = koobPlayers.IndexOf(player);
+		bool isAI = playerIndex >= 0 && aiControlledPlayers != null && aiControlledPlayers.Length > playerIndex && aiControlledPlayers[playerIndex];
+		
+		if (!isAI)
+		{
+			// Human player - initialize move choice
+			currentPossibleMoves = uniqueMoves;
+			currentMoveChoice = 0;
+			KoobyLogManager.Log(LogCategory.Manager, $"Human player {player.id} turn - initialized with {currentPossibleMoves.Count} possible moves");
+		}
+		else
+		{
+			// AI player - clear move choice
+			currentPossibleMoves.Clear();
+			currentMoveChoice = 0;
+			KoobyLogManager.Log(LogCategory.Manager, $"AI player {player.id} turn - cleared move choice");
+		}
+		
+		// Show highlights for possible moves (now that move choice is initialized)
 		ShowHighlightsForPlayer(player);
 		
 		// Handle AI turn
 		if (!_enableAI || player == null) return;
-		int playerIndex = koobPlayers.IndexOf(player);
 		if (playerIndex < 0) return;
-		bool isAI = aiControlledPlayers != null && aiControlledPlayers.Length > playerIndex && aiControlledPlayers[playerIndex];
 		if (!isAI) return;
 		if (aiTurnCoroutine != null) StopCoroutine(aiTurnCoroutine);
 		aiTurnCoroutine = StartCoroutine(ExecuteAIMoveAfterDelay(player, aiMoveDelaySeconds));
@@ -424,13 +489,30 @@ public class GameManager : MonoBehaviour
 		Vector3 winPosition;
 		var uniqueMoves = koobState.GetPossibleMovesForPlayer(player, out winPosition);
 		
-		KoobyLogManager.Log(LogCategory.Manager, $"Showing {uniqueMoves.Count} highlights for Player {player.id}");
+		// Check if player is AI
+		int playerIndex = koobPlayers.IndexOf(player);
+		bool isAI = playerIndex >= 0 && aiControlledPlayers != null && aiControlledPlayers.Length > playerIndex && aiControlledPlayers[playerIndex];
 		
-		// Place highlights for each possible move
-		foreach (var move in uniqueMoves)
+		if (isAI)
 		{
-			Vector3 worldPosition = koobNodeSet.GetPos(move);
-			highlightsManager.PlaceHighlight(worldPosition);
+			// AI player - show all possible moves
+			KoobyLogManager.Log(LogCategory.Manager, $"Showing {uniqueMoves.Count} highlights for AI Player {player.id}");
+			foreach (var move in uniqueMoves)
+			{
+				Vector3 worldPosition = koobNodeSet.GetPos(move);
+				highlightsManager.PlaceHighlight(worldPosition);
+			}
+		}
+		else
+		{
+			// Human player - show only the currently selected move
+			if (currentPossibleMoves.Count > 0 && currentMoveChoice < currentPossibleMoves.Count)
+			{
+				Vector3 selectedMove = currentPossibleMoves[currentMoveChoice];
+				Vector3 worldPosition = koobNodeSet.GetPos(selectedMove);
+				highlightsManager.PlaceSingleHighlight(worldPosition);
+				KoobyLogManager.Log(LogCategory.Manager, $"Showing single highlight for Human Player {player.id} at move {currentMoveChoice}/{currentPossibleMoves.Count}");
+			}
 		}
 	}
 
