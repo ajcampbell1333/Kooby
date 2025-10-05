@@ -63,7 +63,9 @@
 }
 
 .left-button {
-    /* Left button - will have icon later */
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .move-button {
@@ -72,5 +74,39 @@
 }
 
 .right-button {
-    /* Right button - will have icon later */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#leftArrow {
+    width: 48px;
+    height: 48px;
+    flex-grow: 0;
+    -unity-background-scale-mode: scale-to-fit;
+    background-repeat: no-repeat;
+    background-position: center;
+    -unity-background-image-tint-color: white;
+    background-image: url("project://database/Assets/Images/left-arrow.png?fileID=2800000&guid=192c82abf9cb32547b8dee39141f25eb&type=3#left-arrow");
+}
+
+#rightArrow {
+    width: 48px;
+    height: 48px;
+    flex-grow: 0;
+    -unity-background-scale-mode: scale-to-fit;
+    background-repeat: no-repeat;
+    background-position: center;
+    -unity-background-image-tint-color: white;
+    background-image: url("project://database/Assets/Images/right-arrow.png?fileID=2800000&guid=dd2301e813869a84581a373d486fe451&type=3#right-arrow");
+}
+
+#test {
+    flex-grow: 1;
+    position: absolute;
+    flex-direction: row;
+    left: 0;
+    top: 0;
+    right: 90%;
+    bottom: 90%;
 }

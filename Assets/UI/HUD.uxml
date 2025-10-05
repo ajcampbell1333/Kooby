@@ -1,12 +1,16 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" editor-extension-mode="True">
     <Style src="project://database/Assets/UI/HUD.uss?fileID=7433441132597879392&amp;guid=265f3e99b4fc698489242f862ffd0e56&amp;type=3#HUD" />
     <ui:VisualElement name="hud-container" class="hud-container">
-        <ui:VisualElement name="test" style="flex-grow: 1; position: absolute; flex-direction: row; left: 0; top: 0; right: 90%; bottom: 90%;" />
+        <ui:VisualElement name="test" />
         <ui:Label name="turnStatusLabel" text="It&apos;s Player 1&apos;s turn." class="turn-status-label" />
         <ui:VisualElement name="button-row" class="button-row">
-            <ui:Button name="leftButton" class="hud-button left-button" />
+            <ui:Button name="leftButton" class="hud-button left-button">
+                <ui:VisualElement name="leftArrow" />
+            </ui:Button>
             <ui:Button name="moveButton" text="MOVE" class="hud-button move-button" />
-            <ui:Button name="rightButton" class="hud-button right-button" />
+            <ui:Button name="rightButton" class="hud-button right-button">
+                <ui:VisualElement name="rightArrow" />
+            </ui:Button>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
