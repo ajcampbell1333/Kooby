@@ -57,6 +57,7 @@ public class GameManager : MonoBehaviour
 			[SerializeField] private GameObject koobPlayerPrefab;
 			[SerializeField] private Material[] playerPieceMaterials = new Material[4]; // Materials for players 1, 2, 3, 4
 			[SerializeField] private ScriptableCurve playerMoveCurve; // Animation curve template for player piece movement
+			[SerializeField] private ScriptableCurve bumpCurve; // Curve used by BumpAnimation
 			[SerializeField] private bool _debugMotion = false;
 			[SerializeField] private bool _enableAI = false;
 			[SerializeField] private bool[] aiControlledPlayers = new bool[4] { true, true, true, true };
@@ -355,6 +356,9 @@ public class GameManager : MonoBehaviour
 				
 				// Add PlayerPiece component
 				PlayerPiece playerPieceComponent = playerPiece.AddComponent<PlayerPiece>();
+				// Add BumpAnimation component for face-based bump effects
+				var bump = playerPiece.AddComponent<BumpAnimation>();
+				if (bumpCurve != null) bump.SetCurve(bumpCurve);
 				
 				// Subscribe to the movement events
 				playerPieceComponent.BeganMoving += gameStateMachine.OnPlayerPieceBeganMoving;
