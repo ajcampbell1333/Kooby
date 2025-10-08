@@ -16,6 +16,7 @@ public class GameManager : MonoBehaviour
 		// Move choice cycling
 		public int currentMoveChoice { get; private set; } = 0;
 		public List<Vector3> currentPossibleMoves { get; private set; } = new List<Vector3>();
+		public List<Vector3> currentPossibleBumpMoves { get; private set; } = new List<Vector3>();
 		
 		public int GetCurrentPlayerIndex(KoobPlayer player) => koobPlayers.IndexOf(player);
 		public bool IsPlayerAIControlled(int playerIndex) => aiControlledPlayers != null && aiControlledPlayers.Length > playerIndex && aiControlledPlayers[playerIndex];
@@ -496,15 +497,17 @@ public class GameManager : MonoBehaviour
 		
 		if (!isAI)
 		{
-			// Human player - initialize move choice
+			// Human player - initialize move choice and bump moves
 			currentPossibleMoves = uniqueMoves;
+			currentPossibleBumpMoves = koobState.GetPossibleBumpMovesForPlayer(player);
 			currentMoveChoice = 0;
-			KoobyLogManager.Log(LogCategory.Manager, $"Human player {player.id} turn - initialized with {currentPossibleMoves.Count} possible moves");
+			KoobyLogManager.Log(LogCategory.Manager, $"Human player {player.id} turn - initialized with {currentPossibleMoves.Count} possible moves and {currentPossibleBumpMoves.Count} possible bump moves");
 		}
 		else
 		{
-			// AI player - clear move choice
+			// AI player - clear move choice and bump moves
 			currentPossibleMoves.Clear();
+			currentPossibleBumpMoves.Clear();
 			currentMoveChoice = 0;
 			KoobyLogManager.Log(LogCategory.Manager, $"AI player {player.id} turn - cleared move choice");
 		}

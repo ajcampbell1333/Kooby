@@ -266,5 +266,55 @@ public class KoobState
 		return uniqueMoves;
 	}
 
+	public List<Vector3> GetPossibleBumpMoves(Vector3 currentPosition, int currentPlayerID)
+	{
+		List<Vector3> bumpMoves = new List<Vector3>();
+		int x = Mathf.RoundToInt(currentPosition.x);
+		int y = Mathf.RoundToInt(currentPosition.y);
+		int z = Mathf.RoundToInt(currentPosition.z);
+		Vector3[] directions = new Vector3[]
+		{
+			new Vector3(1, 0, 0), new Vector3(-1, 0, 0),
+			new Vector3(0, 1, 0), new Vector3(0, -1, 0),
+			new Vector3(0, 0, 1), new Vector3(0, 0, -1)
+		};
+		foreach (var dir in directions)
+		{
+			int adjX = x + Mathf.RoundToInt(dir.x);
+			int adjY = y + Mathf.RoundToInt(dir.y);
+			int adjZ = z + Mathf.RoundToInt(dir.z);
+			if (!IsInBounds(adjX, adjY, adjZ)) continue;
+			var adjNode = GetNode(adjX, adjY, adjZ);
+			if (!adjNode.occupied || adjNode.playerID == currentPlayerID) continue;
+			int pushX = adjX + Mathf.RoundToInt(dir.x);
+			int pushY = adjY + Mathf.RoundToInt(dir.y);
+			int pushZ = adjZ + Mathf.RoundToInt(dir.z);
+			if (!IsInBounds(pushX, pushY, pushZ)) continue;
+			var pushNode = GetNode(pushX, pushY, pushZ);
+			if (!pushNode.occupied) bumpMoves.Add(new Vector3(adjX, adjY, adjZ));
+		}
+		return bumpMoves;
+	}
+
+	public List<Vector3> GetPossibleBumpMovesForPlayer(KoobPlayer player)
+	{
+		List<Vector3> allBumpMoves = new List<Vector3>();
+		List<Vector3> uniqueBumpMoves = new List<Vector3>();
+		var pieces = player.GetPieces();
+		foreach (var piece in pieces)
+		{
+			var pieceBumpMoves = GetPossibleBumpMoves(piece.GetCurrentMatrixPosition(), player.id);
+			foreach (var bumpMove in pieceBumpMoves)
+			{
+				if (!allBumpMoves.Contains(bumpMove))
+				{
+					allBumpMoves.Add(bumpMove);
+					uniqueBumpMoves.Add(bumpMove);
+				}
+			}
+		}
+		return uniqueBumpMoves;
+	}
+
 	private bool IsInBounds(int x, int y, int z) => x >= 0 && x < 3 && y >= 0 && y < 3 && z >= 0 && z < 3;
 } 
