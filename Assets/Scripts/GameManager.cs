@@ -17,48 +17,60 @@ public class GameManager : MonoBehaviour
 		public int currentMoveChoice { get; private set; } = 0;
 		public List<Vector3> currentPossibleMoves { get; private set; } = new List<Vector3>();
 		public List<Vector3> currentPossibleBumpMoves { get; private set; } = new List<Vector3>();
+		public UnityAction MoveChoiceChanged;
+		
+		public int TotalChoiceCount => currentPossibleMoves.Count + currentPossibleBumpMoves.Count;
+		public bool IsCurrentChoiceBumpMove => currentMoveChoice >= currentPossibleMoves.Count;
+		public string GetCurrentActionButtonText() => IsCurrentChoiceBumpMove ? "BUMP" : "MOVE";
 		
 		public int GetCurrentPlayerIndex(KoobPlayer player) => koobPlayers.IndexOf(player);
 		public bool IsPlayerAIControlled(int playerIndex) => aiControlledPlayers != null && aiControlledPlayers.Length > playerIndex && aiControlledPlayers[playerIndex];
 		
 		public void CycleMoveChoice(bool forward)
 		{
-			if (currentPossibleMoves.Count == 0) return;
+			if (TotalChoiceCount == 0) return;
 			
 			if (forward)
 			{
-				currentMoveChoice = (currentMoveChoice + 1) % currentPossibleMoves.Count;
+				currentMoveChoice = (currentMoveChoice + 1) % TotalChoiceCount;
 			}
 			else
 			{
-				currentMoveChoice = (currentMoveChoice - 1 + currentPossibleMoves.Count) % currentPossibleMoves.Count;
+				currentMoveChoice = (currentMoveChoice - 1 + TotalChoiceCount) % TotalChoiceCount;
 			}
 			
-			KoobyLogManager.Log(LogCategory.Manager, $"Move choice cycled to index {currentMoveChoice} of {currentPossibleMoves.Count} possible moves");
+			KoobyLogManager.Log(LogCategory.Manager, $"Move choice cycled to index {currentMoveChoice} of {TotalChoiceCount} ({currentPossibleMoves.Count} moves, {currentPossibleBumpMoves.Count} bumps)");
 			
-			// Update the highlight to show the new selected move
 			UpdateHighlightForCurrentMove();
+			MoveChoiceChanged?.Invoke();
 		}
 		
 		private void UpdateHighlightForCurrentMove()
 		{
 			if (highlightsManager == null || koobNodeSet == null) return;
-			if (currentPossibleMoves.Count == 0 || currentMoveChoice >= currentPossibleMoves.Count) return;
+			if (TotalChoiceCount == 0 || currentMoveChoice >= TotalChoiceCount) return;
 			
-			Vector3 selectedMove = currentPossibleMoves[currentMoveChoice];
-			Vector3 worldPosition = koobNodeSet.GetPos(selectedMove);
+			Vector3 selectedPosition = GetCurrentChoicePosition();
+			Vector3 worldPosition = koobNodeSet.GetPos(selectedPosition);
 			highlightsManager.PlaceSingleHighlight(worldPosition);
 			
-			KoobyLogManager.Log(LogCategory.Manager, $"Updated highlight to show move {currentMoveChoice} at {worldPosition}");
+			string choiceType = IsCurrentChoiceBumpMove ? "bump" : "move";
+			KoobyLogManager.Log(LogCategory.Manager, $"Updated highlight to show {choiceType} choice {currentMoveChoice} at {worldPosition}");
+		}
+		
+		private Vector3 GetCurrentChoicePosition()
+		{
+			if (IsCurrentChoiceBumpMove)
+				return currentPossibleBumpMoves[currentMoveChoice - currentPossibleMoves.Count];
+			return currentPossibleMoves[currentMoveChoice];
 		}
 		#endregion public vars
 		
 		#region private vars
 			[SerializeField] private GameObject koobMatrixPrefab;
 			[SerializeField] private GameObject koobPlayerPrefab;
-			[SerializeField] private Material[] playerPieceMaterials = new Material[4]; // Materials for players 1, 2, 3, 4
+			[SerializeField] private GameObject playerPiecePrefab;
 			[SerializeField] private ScriptableCurve playerMoveCurve; // Animation curve template for player piece movement
-			[SerializeField] private ScriptableCurve bumpCurve; // Curve used by BumpAnimation
 			[SerializeField] private bool _debugMotion = false;
 			[SerializeField] private bool _enableAI = false;
 			[SerializeField] private bool[] aiControlledPlayers = new bool[4] { true, true, true, true };
@@ -69,6 +81,7 @@ public class GameManager : MonoBehaviour
 			private List<PlayerPiece> allPlayerPieces = new List<PlayerPiece>();
 			private List<NPCPlayer> npcPlayers = new List<NPCPlayer>();
 			private Coroutine aiTurnCoroutine;
+			private Coroutine bumpCoroutine;
 			private HighlightsManager highlightsManager;
 			private CameraOrbit cameraOrbit;
 			
@@ -132,15 +145,20 @@ public class GameManager : MonoBehaviour
 		// Efficiently update possible moves for the position change
 		RefreshPossibleMovesForPositionChange(oldPosition, newPosition);
 
+		CubeAnimController animController = piece.GetComponent<CubeAnimController>();
+		if (animController != null)
+			animController.CaptureRestState();
+
 		// Check for win before advancing the turn
-		if (CheckForWin(piece.GetOwnerPlayer()))
+		KoobPlayer activePlayer = gameStateMachine.CurrentPlayer;
+		if (CheckForWin(activePlayer))
 		{
 			// Winner found; do not advance turn
 			return;
 		}
 		
-		// Cycle to next player
-		int currentPlayerIndex = koobPlayers.IndexOf(gameStateMachine.CurrentPlayer);
+		// Cycle to next player from whoever took the turn (move or bump)
+		int currentPlayerIndex = koobPlayers.IndexOf(activePlayer);
 		int nextPlayerIndex = (currentPlayerIndex + 1) % NUM_PLAYERS;
 		gameStateMachine.SetCurrentPlayer(koobPlayers[nextPlayerIndex]);
 		
@@ -192,9 +210,9 @@ public class GameManager : MonoBehaviour
 
 	private bool ValidateConfig()
 	{
-		if (playerPieceMaterials == null || playerPieceMaterials.Length < 4)
+		if (playerPiecePrefab == null)
 		{
-			KoobyLogManager.LogError(LogCategory.Manager, "Player Piece Materials array not properly assigned. Need 4 materials for players 1, 2, 3, 4.");
+			KoobyLogManager.LogError(LogCategory.Manager, "Player Piece Prefab not assigned. Assign Tessellation_Cube_Rig.");
 			return false;
 		}
 		if (koobNodeSet == null)
@@ -238,8 +256,24 @@ public class GameManager : MonoBehaviour
 	{
 		var player = gameStateMachine.CurrentPlayer;
 		if (player == null) return;
-		if (currentPossibleMoves == null || currentPossibleMoves.Count == 0) return;
-		if (currentMoveChoice < 0 || currentMoveChoice >= currentPossibleMoves.Count) return;
+		if (TotalChoiceCount == 0) return;
+		if (currentMoveChoice < 0 || currentMoveChoice >= TotalChoiceCount) return;
+		
+		if (IsCurrentChoiceBumpMove)
+		{
+			Vector3 targetCell = GetCurrentChoicePosition();
+			if (!TryResolveBumpInteraction(player, targetCell, out BumpInteraction interaction))
+			{
+				KoobyLogManager.LogWarning(LogCategory.Player, $"Human Player {player.id} bump failed — could not resolve bumper/bumpee for {targetCell}");
+				return;
+			}
+
+			if (bumpCoroutine != null)
+				StopCoroutine(bumpCoroutine);
+			bumpCoroutine = StartCoroutine(ExecuteBumpInteraction(interaction));
+			return;
+		}
+		
 		Vector3 logicalDestination = currentPossibleMoves[currentMoveChoice];
 		var playerPieces = player.GetPieces();
 		if (playerPieces == null || playerPieces.Count == 0) return;
@@ -259,22 +293,137 @@ public class GameManager : MonoBehaviour
 		KoobyLogManager.Log(LogCategory.Player, $"Human Player {player.id} moved {mover.gameObject.name} to {logicalDestination}");
 	}
 
+	private bool TryResolveBumpInteraction(KoobPlayer player, Vector3 targetCell, out BumpInteraction interaction)
+	{
+		interaction = default;
+		if (player == null) return false;
+
+		PlayerPiece bumper = FindBumperPiece(player, targetCell);
+		PlayerPiece bumpee = FindPieceAtCell(targetCell);
+		if (bumper == null || bumpee == null) return false;
+
+		Vector3 bumperPos = bumper.GetCurrentMatrixPosition();
+		Vector3 delta = targetCell - bumperPos;
+		var axisDirection = new Vector3Int(
+			Mathf.RoundToInt(delta.x),
+			Mathf.RoundToInt(delta.y),
+			Mathf.RoundToInt(delta.z));
+
+		if (Mathf.Abs(axisDirection.x) + Mathf.Abs(axisDirection.y) + Mathf.Abs(axisDirection.z) != 1)
+			return false;
+
+		interaction = new BumpInteraction
+		{
+			Bumper = bumper,
+			Bumpee = bumpee,
+			AxisDirection = axisDirection
+		};
+		return true;
+	}
+
+	private PlayerPiece FindBumperPiece(KoobPlayer player, Vector3 targetCell)
+	{
+		foreach (var piece in player.GetPieces())
+		{
+			var bumpMoves = koobState.GetPossibleBumpMoves(piece.GetCurrentMatrixPosition(), player.id);
+			if (bumpMoves.Contains(targetCell))
+				return piece;
+		}
+		return null;
+	}
+
+	private PlayerPiece FindPieceAtCell(Vector3 cell)
+	{
+		foreach (var piece in allPlayerPieces)
+		{
+			if (piece.GetCurrentMatrixPosition() == cell)
+				return piece;
+		}
+		return null;
+	}
+
+	private IEnumerator ExecuteBumpInteraction(BumpInteraction interaction)
+	{
+		BumpInteractionEvents.Raise(interaction);
+
+		int bumperPlayerId = interaction.Bumper.GetOwnerPlayerId();
+		KoobyLogManager.Log(LogCategory.Player,
+			$"Human Player {bumperPlayerId} bumping {interaction.Bumpee.gameObject.name} with {interaction.Bumper.gameObject.name} along {interaction.AxisDirection}");
+
+		float animDuration = GetCollisionAnimationDuration(interaction.Bumpee);
+		if (animDuration > 0f)
+			yield return new WaitForSeconds(animDuration);
+
+		Vector3 pushDestination = GetBumpPushDestination(interaction);
+		if (!IsValidBumpPushDestination(interaction.Bumpee, pushDestination))
+		{
+			KoobyLogManager.LogWarning(LogCategory.Player,
+				$"Bump push aborted — destination {pushDestination} is not valid for {interaction.Bumpee.gameObject.name}");
+			bumpCoroutine = null;
+			yield break;
+		}
+
+		if (interaction.Bumpee.IsMoving)
+		{
+			KoobyLogManager.LogWarning(LogCategory.Player, $"Bump push aborted — {interaction.Bumpee.gameObject.name} is already moving");
+			bumpCoroutine = null;
+			yield break;
+		}
+
+		Vector3 worldDestination = koobNodeSet.GetPos(pushDestination);
+		interaction.Bumpee.Move(worldDestination, pushDestination, PlayerPiece.BumpSpeedMultiplier);
+		KoobyLogManager.Log(LogCategory.Player,
+			$"Bump pushed {interaction.Bumpee.gameObject.name} to {pushDestination}");
+
+		bumpCoroutine = null;
+	}
+
+	private static Vector3 GetBumpPushDestination(BumpInteraction interaction)
+	{
+		Vector3 direction = new Vector3(
+			interaction.AxisDirection.x,
+			interaction.AxisDirection.y,
+			interaction.AxisDirection.z);
+		return interaction.Bumpee.GetCurrentMatrixPosition() + direction;
+	}
+
+	private bool IsValidBumpPushDestination(PlayerPiece bumpee, Vector3 destination)
+	{
+		int x = Mathf.RoundToInt(destination.x);
+		int y = Mathf.RoundToInt(destination.y);
+		int z = Mathf.RoundToInt(destination.z);
+		if (x < 0 || x > 2 || y < 0 || y > 2 || z < 0 || z > 2)
+			return false;
+
+		var node = koobState.GetNode(x, y, z);
+		return !node.occupied;
+	}
+
+	private static float GetCollisionAnimationDuration(PlayerPiece piece)
+	{
+		if (piece == null) return 0f;
+		var animController = piece.GetComponent<CubeAnimController>();
+		return animController != null ? animController.CollisionAnimationDuration : 0f;
+	}
+
 	private bool CheckForWin(KoobPlayer player)
 	{
 		if (player == null) return false;
-		List<PlayerPiece> pieces = player.GetPieces();
-		if (pieces == null || pieces.Count != 2) return false;
 
-		Vector3 a = pieces[0].GetCurrentMatrixPosition();
-		Vector3 b = pieces[1].GetCurrentMatrixPosition();
+		if (!koobState.IsPlayerWinning(player.id))
+		{
+			var pieces = player.GetPieces();
+			if (pieces != null && pieces.Count == 2)
+			{
+				Vector3 a = pieces[0].GetCurrentMatrixPosition();
+				Vector3 b = pieces[1].GetCurrentMatrixPosition();
+				KoobyLogManager.Log(LogCategory.Player,
+					$"Win check failed for Player {player.id}: piece positions {a} and {b}");
+			}
+			return false;
+		}
 
-		int dx = Mathf.Abs(Mathf.RoundToInt(a.x) - Mathf.RoundToInt(b.x));
-		int dy = Mathf.Abs(Mathf.RoundToInt(a.y) - Mathf.RoundToInt(b.y));
-		int dz = Mathf.Abs(Mathf.RoundToInt(a.z) - Mathf.RoundToInt(b.z));
-
-		bool adjacent = (dx + dy + dz) == 1;
-		if (!adjacent) return false;
-
+		Debug.Log($"PLAYER {player.id} WON!!!");
 		KoobyLogManager.Log(LogCategory.Player, $"PLAYER {player.id} WON!!!");
 		GameWon?.Invoke(player);
 		return true;
@@ -335,71 +484,71 @@ public class GameManager : MonoBehaviour
 	
 	private void CreatePlayerPieces()
 	{
-		// Create 2 player pieces per player for 4 total players
 		for (int player = 0; player < NUM_PLAYERS; player++)
 		{
-			if (playerPieceMaterials[player] == null)
-			{
-				KoobyLogManager.LogError(LogCategory.Manager, $"Material for Player {player + 1} is not assigned.");
-				continue;
-			}
-			
 			for (int piece = 0; piece < PIECES_PER_PLAYER; piece++)
 			{
-				// Create a cube primitive
-				GameObject playerPiece = GameObject.CreatePrimitive(PrimitiveType.Cube);
+				GameObject playerPiece = Instantiate(playerPiecePrefab);
 				playerPiece.name = $"Player{player + 1}_Piece{piece + 1}";
-				
-				// Remove the collider
-				Collider collider = playerPiece.GetComponent<Collider>();
-				if (collider != null)
-					DestroyImmediate(collider);
-				
-				// Add PlayerPiece component
-				PlayerPiece playerPieceComponent = playerPiece.AddComponent<PlayerPiece>();
-				// Add BumpAnimation component for face-based bump effects
-				var bump = playerPiece.AddComponent<BumpAnimation>();
-				if (bumpCurve != null) bump.SetCurve(bumpCurve);
-				
-				// Subscribe to the movement events
+
+				RemoveCollidersInHierarchy(playerPiece);
+
+				PlayerPiece playerPieceComponent = playerPiece.GetComponent<PlayerPiece>();
+				if (playerPieceComponent == null)
+					playerPieceComponent = playerPiece.AddComponent<PlayerPiece>();
+
+				if (playerPiece.GetComponent<PieceBumpAnimationHandler>() == null)
+					playerPiece.AddComponent<PieceBumpAnimationHandler>();
+
 				playerPieceComponent.BeganMoving += gameStateMachine.OnPlayerPieceBeganMoving;
 				playerPieceComponent.FinishedMoving += OnPlayerPieceFinishedMoving;
-				
-				// Assign the move curve if available
+
 				if (playerMoveCurve != null)
 					playerPieceComponent.SetMoveCurve(playerMoveCurve);
-				
-				// Assign the player's material
-				Renderer renderer = playerPiece.GetComponent<Renderer>();
-				if (renderer != null)
-					renderer.material = playerPieceMaterials[player];
-				
-				// Scale the piece to 0.9
+
+				ApplyPlayerPieceColor(playerPiece, player);
+
 				playerPiece.transform.localScale = Vector3.one * 0.9f;
-				
-				// Place the piece using KoobNodeSet
+
 				Vector3 logicalPosition = GetStartingPosition(player, piece);
 				koobNodeSet.SetPos(playerPiece.transform, logicalPosition);
-				
-				// Set the initial matrix position in the PlayerPiece component
+
+				CubeAnimController animController = playerPiece.GetComponent<CubeAnimController>();
+				if (animController != null)
+					animController.CaptureRestState();
+
 				playerPieceComponent.SetMatrixPosition(logicalPosition);
-				
-				// Initialize possible moves for this piece
+
 				List<Vector3> initialPossibleMoves = koobState.GetPossibleMoves(logicalPosition);
 				playerPieceComponent.SetPossibleMoves(initialPossibleMoves);
-				
-				// Set the owner player reference
+
 				playerPieceComponent.SetOwnerPlayer(koobPlayers[player]);
-				
-				// Assign this piece to the corresponding player
 				koobPlayers[player].AssignPiece(playerPieceComponent);
-				
-				// Add to global pieces list for debug motion
 				allPlayerPieces.Add(playerPieceComponent);
-				
-				KoobyLogManager.Log(LogCategory.Player, $"Created {playerPiece.name} with material {playerPieceMaterials[player].name} at logical position {logicalPosition} with {initialPossibleMoves.Count} possible moves");
+
+				KoobyLogManager.Log(LogCategory.Player, $"Created {playerPiece.name} with color {PlayerPieceColors.Get(player)} at logical position {logicalPosition} with {initialPossibleMoves.Count} possible moves");
 			}
 		}
+	}
+
+	private static void RemoveCollidersInHierarchy(GameObject root)
+	{
+		foreach (Collider collider in root.GetComponentsInChildren<Collider>())
+			Destroy(collider);
+	}
+
+	private static void ApplyPlayerPieceColor(GameObject pieceRoot, int playerIndex)
+	{
+		MeshRenderer meshRenderer = pieceRoot.GetComponentInChildren<MeshRenderer>();
+		if (meshRenderer == null)
+		{
+			KoobyLogManager.LogWarning(LogCategory.Player, $"No MeshRenderer found under {pieceRoot.name}; player color not applied.");
+			return;
+		}
+
+		Material instance = new Material(meshRenderer.sharedMaterial);
+		instance.SetColor("_Color", PlayerPieceColors.Get(playerIndex));
+		meshRenderer.material = instance;
 	}
 	
 	private void InitializeKoobStateWithStartingPositions()
@@ -515,6 +664,9 @@ public class GameManager : MonoBehaviour
 		// Show highlights for possible moves (now that move choice is initialized)
 		ShowHighlightsForPlayer(player);
 		
+		if (!isAI)
+			MoveChoiceChanged?.Invoke();
+		
 		// Handle AI turn
 		if (!_enableAI || player == null) return;
 		if (playerIndex < 0) return;
@@ -547,14 +699,7 @@ public class GameManager : MonoBehaviour
 		}
 		else
 		{
-			// Human player - show only the currently selected move
-			if (currentPossibleMoves.Count > 0 && currentMoveChoice < currentPossibleMoves.Count)
-			{
-				Vector3 selectedMove = currentPossibleMoves[currentMoveChoice];
-				Vector3 worldPosition = koobNodeSet.GetPos(selectedMove);
-				highlightsManager.PlaceSingleHighlight(worldPosition);
-				KoobyLogManager.Log(LogCategory.Manager, $"Showing single highlight for Human Player {player.id} at move {currentMoveChoice}/{currentPossibleMoves.Count}");
-			}
+			UpdateHighlightForCurrentMove();
 		}
 	}
 

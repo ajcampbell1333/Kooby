@@ -410,8 +410,8 @@ Light:
   serializedVersion: 10
   m_Type: 1
   m_Shape: 0
-  m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
-  m_Intensity: 1
+  m_Color: {r: 0.8392157, g: 0.9858724, b: 1, a: 1}
+  m_Intensity: 1.2
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -575,13 +575,8 @@ MonoBehaviour:
   koobNodeSet: {fileID: 0}
   koobMatrixPrefab: {fileID: 7042825659747426450, guid: b3270a1e957fbdd44af3801c1730adec, type: 3}
   koobPlayerPrefab: {fileID: 6869063465938807769, guid: aee04d57520144a4b87cce740776771a, type: 3}
-  playerPieceMaterials:
-  - {fileID: 2100000, guid: 32f4ef45225b32647b75911557bb8d5c, type: 2}
-  - {fileID: 2100000, guid: db62eb8000d2d514d8fc615f8d164b57, type: 2}
-  - {fileID: 2100000, guid: 7d2c186c074bb604f92328608beb0e69, type: 2}
-  - {fileID: 2100000, guid: 89a3bb2a1ae506842b209d11d3d294e8, type: 2}
+  playerPiecePrefab: {fileID: 3147638956118143046, guid: 4d5fb5fd48ee7db4cbfde0f5eed0a0a5, type: 3}
   playerMoveCurve: {fileID: 11400000, guid: 12b754f02a8a71a41a66c728542ff643, type: 2}
-  bumpCurve: {fileID: 11400000, guid: 240ac7823a4aa824ab5409726b4399ac, type: 2}
   _debugMotion: 0
   _enableAI: 1
   aiControlledPlayers: 00010101
@@ -626,11 +621,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bda7b9ae074bbee48b1f330324af0377, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  enableManagerLogs: 0
-  enablePlayerLogs: 0
+  enableManagerLogs: 1
+  enablePlayerLogs: 1
   enableMatrixLogs: 0
   enableUIInputLogs: 0
-  enableUIOutputLogs: 0
+  enableUIOutputLogs: 1
 --- !u!1 &1942496477
 GameObject:
   m_ObjectHideFlags: 0

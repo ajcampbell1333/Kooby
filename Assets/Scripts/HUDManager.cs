@@ -115,9 +115,10 @@ public class HUDManager : MonoBehaviour
     {
         if (gameManager != null)
         {
-            // Subscribe to turn changes
             GameStateMachine.NewTurnBegan += OnNewTurnBegan;
-            KoobyLogManager.Log(LogCategory.UI_Output, "HUDManager subscribed to NewTurnBegan event");
+            gameManager.MoveChoiceChanged += UpdateActionButtonLabel;
+            gameManager.GameWon += OnGameWon;
+            KoobyLogManager.Log(LogCategory.UI_Output, "HUDManager subscribed to NewTurnBegan, MoveChoiceChanged, and GameWon events");
         }
         else
         {
@@ -130,6 +131,8 @@ public class HUDManager : MonoBehaviour
         if (gameManager != null)
         {
             GameStateMachine.NewTurnBegan -= OnNewTurnBegan;
+            gameManager.MoveChoiceChanged -= UpdateActionButtonLabel;
+            gameManager.GameWon -= OnGameWon;
         }
     }
     
@@ -137,26 +140,32 @@ public class HUDManager : MonoBehaviour
     {
         UpdateTurnStatus(player);
         UpdateButtonVisibility(player);
+        UpdateActionButtonLabel();
     }
     
+    private void UpdateActionButtonLabel()
+    {
+        if (moveButton == null || gameManager == null) return;
+        moveButton.text = gameManager.GetCurrentActionButtonText();
+    }
+    
+    private void OnGameWon(KoobPlayer player)
+    {
+        if (turnStatusLabel == null || player == null) return;
+
+        turnStatusLabel.text = $"PLAYER {player.id} WON!!!";
+        turnStatusLabel.style.color = new StyleColor(PlayerPieceColors.GetByPlayerId(player.id));
+        SetButtonsVisible(false);
+        KoobyLogManager.Log(LogCategory.UI_Output, $"Displayed win message for Player {player.id}");
+    }
+
     private void UpdateTurnStatus(KoobPlayer player)
     {
         if (turnStatusLabel == null || player == null) return;
         
         turnStatusLabel.text = $"It's Player {player.id}'s turn.";
-        
-        // Get player color from first piece's material
-        var pieces = player.GetPieces();
-        if (pieces != null && pieces.Count > 0)
-        {
-            var renderer = pieces[0].GetComponent<Renderer>();
-            if (renderer != null && renderer.material != null)
-            {
-                Color playerColor = renderer.material.color;
-                turnStatusLabel.style.color = new StyleColor(playerColor);
-                KoobyLogManager.Log(LogCategory.UI_Output, $"Updated turn status color to {playerColor} for Player {player.id}");
-            }
-        }
+        turnStatusLabel.style.color = new StyleColor(PlayerPieceColors.GetByPlayerId(player.id));
+        KoobyLogManager.Log(LogCategory.UI_Output, $"Updated turn status color to {PlayerPieceColors.GetByPlayerId(player.id)} for Player {player.id}");
     }
     
     private void UpdateButtonVisibility(KoobPlayer player)

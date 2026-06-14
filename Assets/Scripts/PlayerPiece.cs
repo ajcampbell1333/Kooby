@@ -5,6 +5,8 @@ using System.Collections.Generic;
 
 public class PlayerPiece : MonoBehaviour
 {
+    public const float BumpSpeedMultiplier = 3f;
+
     [SerializeField] private float moveDuration = 1.0f;
     [SerializeField] private ScriptableCurve moveCurve;
     
@@ -20,7 +22,7 @@ public class PlayerPiece : MonoBehaviour
     public bool IsMoving => isMoving;
     public Vector3 GetPreviousMatrixPosition() => previousMatrixPosition;
     
-    public void Move(Vector3 worldDestination, Vector3 logicalDestination)
+    public void Move(Vector3 worldDestination, Vector3 logicalDestination, float speedMultiplier = 1f)
     {
         if (isMoving)
         {
@@ -35,10 +37,11 @@ public class PlayerPiece : MonoBehaviour
         // Invoke the began moving event
         BeganMoving?.Invoke(this);
         
-        StartCoroutine(MoveCoroutine(worldDestination));
+        float duration = moveDuration / Mathf.Max(speedMultiplier, Mathf.Epsilon);
+        StartCoroutine(MoveCoroutine(worldDestination, duration));
     }
     
-    private IEnumerator MoveCoroutine(Vector3 destination)
+    private IEnumerator MoveCoroutine(Vector3 destination, float duration)
     {
         isMoving = true;
         
@@ -48,10 +51,10 @@ public class PlayerPiece : MonoBehaviour
         // Use the curve from ScriptableCurve, or default to linear if not assigned
         AnimationCurve curve = moveCurve != null ? moveCurve.Curve : AnimationCurve.Linear(0, 0, 1, 1);
         
-        while (elapsedTime < moveDuration)
+        while (elapsedTime < duration)
         {
             elapsedTime += Time.deltaTime;
-            float t = elapsedTime / moveDuration;
+            float t = elapsedTime / duration;
             
             // Evaluate the animation curve
             float curveValue = curve.Evaluate(t);

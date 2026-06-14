@@ -12,6 +12,11 @@ public enum PlayerPieceFace
 	West
 }
 
+/// <summary>
+/// Deprecated: use Tessellation_Cube_Rig with CubeAnimController and RippleEffectController instead.
+/// This legacy component performs a simple single-axis pivot squash via ScriptableCurve.
+/// Kept temporarily for reference and BumpTest look-dev; do not attach to new player pieces.
+/// </summary>
 public class BumpAnimation : MonoBehaviour
 {
 	[SerializeField] private ScriptableCurve bumpCurve;

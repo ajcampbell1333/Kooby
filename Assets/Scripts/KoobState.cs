@@ -316,5 +316,38 @@ public class KoobState
 		return uniqueBumpMoves;
 	}
 
-	private bool IsInBounds(int x, int y, int z) => x >= 0 && x < 3 && y >= 0 && y < 3 && z >= 0 && z < 3;
+	public bool IsInBounds(int x, int y, int z) => x >= 0 && x < 3 && y >= 0 && y < 3 && z >= 0 && z < 3;
+
+	public bool TryGetPlayerOccupiedCells(int playerId, out Vector3Int cellA, out Vector3Int cellB)
+	{
+		cellA = default;
+		cellB = default;
+		var cells = new List<Vector3Int>();
+
+		for (int x = 0; x < 3; x++)
+			for (int y = 0; y < 3; y++)
+				for (int z = 0; z < 3; z++)
+				{
+					var node = GetNode(x, y, z);
+					if (node.occupied && node.playerID == playerId)
+						cells.Add(new Vector3Int(x, y, z));
+				}
+
+		if (cells.Count != 2)
+			return false;
+
+		cellA = cells[0];
+		cellB = cells[1];
+		return true;
+	}
+
+	public static bool AreCellsAdjacent(Vector3Int a, Vector3Int b) =>
+		Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y) + Mathf.Abs(a.z - b.z) == 1;
+
+	public bool IsPlayerWinning(int playerId)
+	{
+		if (!TryGetPlayerOccupiedCells(playerId, out var cellA, out var cellB))
+			return false;
+		return AreCellsAdjacent(cellA, cellB);
+	}
 } 
